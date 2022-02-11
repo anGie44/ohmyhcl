@@ -1,0 +1,10 @@
+#/usr/local/bin/bash
+terraform import aws_s3_bucket_acl.b_acl stunning-scorpion
+terraform import aws_s3_bucket_acl.log_bucket_acl my-example-log-bucket-44444
+terraform import aws_s3_bucket_accelerate_configuration.example_acceleration_configuration tf-acc-test-abc12345
+terraform import aws_s3_bucket_policy.example_policy tf-acc-test-abc12345
+terraform import aws_s3_bucket_request_payment_configuration.example_request_payment_configuration tf-acc-test-abc12345
+terraform import aws_s3_bucket_cors_configuration.example_cors_configuration tf-acc-test-abc12345
+terraform import aws_s3_bucket_acl.example_acl tf-acc-test-abc12345
+terraform import aws_s3_bucket_logging.example_logging tf-acc-test-abc12345
+terraform import aws_s3_bucket_versioning.example_versioning tf-acc-test-abc12345
