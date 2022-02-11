@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/zclconf/go-cty/cty"
 	"io/ioutil"
 	"log"
 	"os"
@@ -10,6 +13,7 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/mitchellh/cli"
@@ -61,7 +65,7 @@ func main() {
 	if diags != nil {
 		for _, diag := range diags {
 			if diag.Error() != "" {
-				ui.Error(fmt.Sprintf("error loading configuration: %s", err))
+				ui.Error(fmt.Sprintf("error loading configuration: %s", diag.Error()))
 			}
 		}
 		os.Exit(1)
@@ -169,7 +173,7 @@ func main() {
 		//var objectLockConfig *hclwrite.Block
 		//var replicationConfig *hclwrite.Block
 		//var serverSideEncryptionConfig *hclwrite.Block
-		//var website *hclwrite.Block
+		var website *hclwrite.Block
 		var versioning *hclwrite.Block
 
 		for _, subBlock := range block.Body().Blocks() {
@@ -192,8 +196,8 @@ func main() {
 			//	serverSideEncryptionConfig = subBlock
 			case "versioning":
 				versioning = subBlock
-				//case "website":
-				//	website = subBlock
+			case "website":
+				website = subBlock
 			}
 		}
 
@@ -343,6 +347,84 @@ func main() {
 
 			log.Printf("	  ✓ Created aws_s3_bucket_versioning.%s", newlabels[1])
 			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_versioning.%s,%s", newlabels[1], bucketPath))
+		}
+
+		if website != nil {
+			f.Body().AppendNewline()
+
+			newlabels := []string{"aws_s3_bucket_website_configuration", fmt.Sprintf("%s_website_configuration", labels[1])}
+			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
+			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
+			if err != nil {
+				continue
+			}
+
+			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+
+			for k, v := range website.Body().Attributes() {
+				switch k {
+				case "index_document":
+					indexDocBlock := newBlock.Body().AppendNewBlock("index_document", nil)
+					indexDocBlock.Body().SetAttributeRaw("suffix", v.Expr().BuildTokens(nil))
+				case "error_document":
+					errDocBlock := newBlock.Body().AppendNewBlock("error_document", nil)
+					errDocBlock.Body().SetAttributeRaw("key", v.Expr().BuildTokens(nil))
+				case "redirect_all_requests_to":
+					redirectBlock := newBlock.Body().AppendNewBlock("redirect_all_requests_to", nil)
+					redirectBlock.Body().SetAttributeRaw("host_name", v.Expr().BuildTokens(nil))
+				case "routing_rules":
+					var unmarshaledRules []*s3.RoutingRule
+
+					routingRulesStr := strings.TrimPrefix(strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes())), "<<EOF")
+					routingRulesStr = strings.TrimSuffix(routingRulesStr, "EOF")
+
+					if err := json.Unmarshal([]byte(routingRulesStr), &unmarshaledRules); err != nil {
+						log.Printf("[WARN] Unable to set 'routing_rule' in aws_s3_bucket_website_configuration.%s: %s", labels[1], err)
+					}
+
+					for _, rule := range unmarshaledRules {
+						routingRuleBlock := newBlock.Body().AppendNewBlock("routing_rule", nil)
+						if c := rule.Condition; c != nil {
+							conditionBlock := routingRuleBlock.Body().AppendNewBlock("condition", nil)
+							if c.HttpErrorCodeReturnedEquals != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(c.HttpErrorCodeReturnedEquals)))
+								conditionBlock.Body().SetAttributeRaw("http_error_code_returned_equals", expr.BuildTokens(nil))
+							}
+							if c.KeyPrefixEquals != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(c.KeyPrefixEquals)))
+								conditionBlock.Body().SetAttributeRaw("key_prefix_equals", expr.BuildTokens(nil))
+							}
+						}
+
+						if r := rule.Redirect; r != nil {
+							redirectBlock := routingRuleBlock.Body().AppendNewBlock("redirect", nil)
+							if r.HostName != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.HostName)))
+								redirectBlock.Body().SetAttributeRaw("host_name", expr.BuildTokens(nil))
+							}
+							if r.HttpRedirectCode != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.HttpRedirectCode)))
+								redirectBlock.Body().SetAttributeRaw("http_redirect_code", expr.BuildTokens(nil))
+							}
+							if r.Protocol != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.Protocol)))
+								redirectBlock.Body().SetAttributeRaw("protocol", expr.BuildTokens(nil))
+							}
+							if r.ReplaceKeyPrefixWith != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.ReplaceKeyPrefixWith)))
+								redirectBlock.Body().SetAttributeRaw("replace_key_prefix_with", expr.BuildTokens(nil))
+							}
+							if r.ReplaceKeyWith != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.ReplaceKeyWith)))
+								redirectBlock.Body().SetAttributeRaw("replace_key_with", expr.BuildTokens(nil))
+							}
+						}
+					}
+				}
+			}
+
+			log.Printf("	  ✓ Created aws_s3_bucket_website_configuration.%s", newlabels[1])
+			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_website_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 	}
 
