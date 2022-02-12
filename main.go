@@ -77,6 +77,10 @@ func main() {
 			continue
 		}
 
+		// TODO:
+		// Account for the terraform.required_providers.aws.version (update to "~> 4.0")
+		// Account for any provider.aws blocks that configure a specific version (update to "~> 4.0")
+
 		labels := block.Labels()
 		if len(labels) != 2 || labels[0] != "aws_s3_bucket" {
 			continue
@@ -179,7 +183,7 @@ func main() {
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		var corsRules []*hclwrite.Block
 		var grants []*hclwrite.Block
-		//var lifecycleRules []*hclwrite.Block
+		var lifecycleRules []*hclwrite.Block
 		var logging *hclwrite.Block
 		var objectLockConfig *hclwrite.Block
 		var replicationConfig *hclwrite.Block
@@ -195,8 +199,8 @@ func main() {
 				corsRules = append(corsRules, subBlock)
 			case "grant":
 				grants = append(grants, subBlock)
-			//case "lifecycle_rule":
-			//	lifecycleRules = append(lifecycleRules, subBlock)
+			case "lifecycle_rule":
+				lifecycleRules = append(lifecycleRules, subBlock)
 			case "logging":
 				logging = subBlock
 			case "object_lock_configuration":
@@ -295,6 +299,96 @@ func main() {
 				log.Printf("	  ✓ Created aws_s3_bucket_acl.%s", newlabels[1])
 				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
 			} // TODO: Account for case where "acl" and "grant" are configured
+		}
+
+		if len(lifecycleRules) > 0 {
+			f.Body().AppendNewline()
+
+			newlabels := []string{"aws_s3_bucket_lifecycle_configuration", fmt.Sprintf("%s_lifecycle_configuration", labels[1])}
+			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
+
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
+
+			for _, lifecycleRuleBlock := range lifecycleRules {
+				ruleBlock := newBlock.Body().AppendNewBlock("rule", nil)
+
+				m := make(map[string]*hclwrite.Attribute)
+
+				for k, v := range lifecycleRuleBlock.Body().Attributes() {
+					// Expected: id, prefix, tags, enabled, abort_incomplete_multipart_upload_days
+					switch k {
+					case "abort_incomplete_multipart_upload_days":
+						// This is represented as a abort_incomplete_multipart_upload block in the new resource
+						abortBlock := ruleBlock.Body().AppendNewBlock("abort_incomplete_multipart_upload", nil)
+						abortBlock.Body().SetAttributeRaw("days_after_initiation", v.Expr().BuildTokens(nil))
+					case "enabled":
+						// This is represented as "status" in the new resource
+						value := strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes()))
+						if value == "true" {
+							ruleBlock.Body().SetAttributeValue("status", cty.StringVal("Enabled"))
+						} else if value == "false" {
+							ruleBlock.Body().SetAttributeValue("status", cty.StringVal("Disabled"))
+						}
+					case "id":
+						ruleBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+					case "prefix":
+						m[k] = v
+					case "tags":
+						m[k] = v
+					}
+				}
+
+				if vTags, ok := m["tags"]; ok {
+					filterBlock := ruleBlock.Body().AppendNewBlock("filter", nil)
+					andBlock := filterBlock.Body().AppendNewBlock("and", nil)
+					andBlock.Body().SetAttributeRaw("tags", vTags.Expr().BuildTokens(nil))
+					if vPrefix, vOk := m["prefix"]; vOk {
+						andBlock.Body().SetAttributeRaw("prefix", vPrefix.Expr().BuildTokens(nil))
+					} else {
+						andBlock.Body().SetAttributeValue("prefix", cty.StringVal(""))
+					}
+				} else if vPrefix, vOk := m["prefix"]; vOk {
+					filterBlock := ruleBlock.Body().AppendNewBlock("filter", nil)
+					filterBlock.Body().SetAttributeRaw("prefix", vPrefix.Expr().BuildTokens(nil))
+				}
+
+				for _, b := range lifecycleRuleBlock.Body().Blocks() {
+					// Expected: expiration, noncurrent_version_expiration, transition, noncurrent_version_transition
+					switch b.Type() {
+					case "expiration", "transition":
+						ruleBlock.Body().AppendBlock(b)
+					case "noncurrent_version_expiration":
+						nve := ruleBlock.Body().AppendNewBlock("noncurrent_version_expiration", nil)
+						for k, v := range b.Body().Attributes() {
+							// Expected: days
+							if k != "days" {
+								continue
+							}
+							// "days" is represented as "noncurrent_days" in the new resource
+							nve.Body().SetAttributeRaw("noncurrent_days", v.Expr().BuildTokens(nil))
+						}
+					case "noncurrent_version_transition":
+						nvt := ruleBlock.Body().AppendNewBlock("noncurrent_version_transition", nil)
+						for k, v := range b.Body().Attributes() {
+							// Expected: days, storage_class
+							switch k {
+							case "days":
+								// "days" is represented as "noncurrent_days" in the new resource
+								nvt.Body().SetAttributeRaw("noncurent_days", v.Expr().BuildTokens(nil))
+							case "storage_class":
+								nvt.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+							}
+						}
+					}
+				}
+			}
+
+			log.Printf("	  ✓ Created aws_s3_bucket_lifecycle_configuration.%s", newlabels[1])
+			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_lifecycle_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if logging != nil {
@@ -484,7 +578,6 @@ func main() {
 					case "filter":
 						filterBlock := ruleBlock.Body().AppendNewBlock("filter", nil)
 
-						var hasPrefix, hasTags bool
 						m := make(map[string]*hclwrite.Attribute)
 
 						for k, v := range innerRuleBlock.Body().Attributes() {
@@ -494,24 +587,22 @@ func main() {
 							}
 
 							if k == "prefix" {
-								hasPrefix = true
 								m[k] = v
 							} else if k == "tags" {
-								hasTags = true
 								m[k] = v
 							}
 						}
 
-						if hasTags {
+						if vTags, ok := m["tags"]; ok {
 							andBlock := filterBlock.Body().AppendNewBlock("and", nil)
-							andBlock.Body().SetAttributeRaw("tags", m["tags"].Expr().BuildTokens(nil))
-							if hasPrefix {
-								andBlock.Body().SetAttributeRaw("prefix", m["prefix"].Expr().BuildTokens(nil))
+							andBlock.Body().SetAttributeRaw("tags", vTags.Expr().BuildTokens(nil))
+							if vPrefix, vOk := m["prefix"]; vOk {
+								andBlock.Body().SetAttributeRaw("prefix", vPrefix.Expr().BuildTokens(nil))
 							} else {
 								andBlock.Body().SetAttributeValue("prefix", cty.StringVal(""))
 							}
-						} else if hasPrefix {
-							filterBlock.Body().SetAttributeRaw("prefix", m["prefix"].Expr().BuildTokens(nil))
+						} else if vPrefix, ok := m["prefix"]; ok {
+							filterBlock.Body().SetAttributeRaw("prefix", vPrefix.Expr().BuildTokens(nil))
 						}
 					case "source_selection_criteria":
 						sscBlock := ruleBlock.Body().AppendNewBlock("source_selection_criteria", nil)

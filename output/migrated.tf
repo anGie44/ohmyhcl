@@ -45,6 +45,11 @@ resource "aws_s3_bucket" "example" {
 
 
 
+
+
+
+
+
 }
 resource "aws_s3_bucket_acl" "b_acl" {
   bucket = aws_s3_bucket.b.id
@@ -142,10 +147,78 @@ resource "aws_s3_bucket_acl" "example_acl" {
     }
     grant {
       grantee {
-        uri  = "http://acs.amazonaws.com/groups/s3/LogDelivery"
         type = "Group"
+        uri  = "http://acs.amazonaws.com/groups/s3/LogDelivery"
       }
       permission = "READ_ACP"
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "example_lifecycle_configuration" {
+  bucket = aws_s3_bucket.example.id
+  rule {
+    status = "Enabled"
+    id     = "id2"
+    filter {
+      prefix = "path2/"
+    }
+    expiration {
+      date = "2016-01-12"
+    }
+  }
+  rule {
+    id     = "id5"
+    status = "Enabled"
+    filter {
+      and {
+        tags = {
+          "tagKey"    = "tagValue"
+          "terraform" = "hashicorp"
+        }
+        prefix = ""
+      }
+    }
+    transition {
+      days          = 0
+      storage_class = "GLACIER"
+    }
+  }
+  rule {
+    id     = "id6"
+    status = "Enabled"
+    filter {
+      and {
+        tags = {
+          "tagKey" = "tagValue"
+        }
+        prefix = ""
+      }
+    }
+    transition {
+      days          = 0
+      storage_class = "GLACIER"
+    }
+  }
+  rule {
+    status = "Disabled"
+    id     = "id2"
+    filter {
+      prefix = "path2/"
+    }
+    noncurrent_version_expiration {
+      noncurrent_days = 365
+    }
+  }
+  rule {
+    status = "Enabled"
+    id     = "id3"
+    filter {
+      prefix = "path3/"
+    }
+    noncurrent_version_transition {
+      noncurent_days = 0
+      storage_class  = "GLACIER"
     }
   }
 }
@@ -178,12 +251,12 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
   bucket = aws_s3_bucket.example.id
   role   = aws_iam_role.role.arn
   rule {
-    priority = 1
-    status   = "Enabled"
+    status = "Enabled"
     delete_marker_replication {
       status = "Enabled"
     }
-    id = "rule1"
+    id       = "rule1"
+    priority = 1
     filter {
       prefix = "prefix1"
     }
@@ -252,6 +325,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "example_server_si
 
 resource "aws_s3_bucket_website_configuration" "example_website_configuration" {
   bucket = aws_s3_bucket.example.id
+  index_document {
+    suffix = "index.html"
+  }
   error_document {
     key = "error.html"
   }
@@ -262,8 +338,5 @@ resource "aws_s3_bucket_website_configuration" "example_website_configuration" {
     redirect {
       replace_key_prefix_with = "documents/"
     }
-  }
-  index_document {
-    suffix = "index.html"
   }
 }
