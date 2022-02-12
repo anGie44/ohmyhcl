@@ -142,8 +142,8 @@ resource "aws_s3_bucket_acl" "example_acl" {
     }
     grant {
       grantee {
-        type = "Group"
         uri  = "http://acs.amazonaws.com/groups/s3/LogDelivery"
+        type = "Group"
       }
       permission = "READ_ACP"
     }
@@ -152,8 +152,8 @@ resource "aws_s3_bucket_acl" "example_acl" {
 
 resource "aws_s3_bucket_logging" "example_logging" {
   bucket        = aws_s3_bucket.example.id
-  target_bucket = aws_s3_bucket.log_bucket.id
   target_prefix = "log/"
+  target_bucket = aws_s3_bucket.log_bucket.id
 }
 
 resource "aws_s3_bucket_versioning" "example_versioning" {
@@ -181,11 +181,30 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
     id       = "rule1"
     priority = 1
     status   = "Enabled"
+    delete_marker_replication {
+      status = "Enabled"
+    }
+    filter {
+      prefix = "prefix1"
+    }
+    source_selection_criteria {
+      sse_kms_encrypted_objects {
+        status = "Enabled"
+      }
+    }
   }
   rule {
-    id       = "rule2"
     priority = 2
     status   = "Enabled"
+    id       = "rule2"
+    filter {
+      and {
+        tags = {
+          Key2 = "Value2"
+        }
+        prefix = ""
+      }
+    }
   }
 }
 

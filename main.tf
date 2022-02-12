@@ -122,9 +122,18 @@ resource "aws_s3_bucket" "example" {
       filter {
         prefix = "prefix1"
       }
+
+      delete_marker_replication_status = "Enabled"
+
       destination {
         bucket        = aws_s3_bucket.destination.arn
         storage_class = "STANDARD"
+      }
+
+      source_selection_criteria {
+        sse_kms_encrypted_objects {
+          enabled = true
+        }
       }
     }
     rules {

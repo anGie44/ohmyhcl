@@ -418,7 +418,72 @@ func main() {
 					case "id", "prefix", "status", "priority":
 						ruleBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
 					case "delete_marker_replication_status":
+						// This is represented as a block in the new resource
+						deleteMarkerBlock := ruleBlock.Body().AppendNewBlock("delete_marker_replication", nil)
+						deleteMarkerBlock.Body().SetAttributeRaw("status", v.Expr().BuildTokens(nil))
 					}
+				}
+
+				for _, innerRuleBlock := range b.Body().Blocks() {
+					// Expected: filter, source_selection_criteria, destination
+					switch innerRuleBlock.Type() {
+					case "destination":
+
+					case "filter":
+						filterBlock := ruleBlock.Body().AppendNewBlock("filter", nil)
+
+						var hasPrefix, hasTags bool
+						m := make(map[string]*hclwrite.Attribute)
+
+						for k, v := range innerRuleBlock.Body().Attributes() {
+							if k != "prefix" && k != "tags" {
+								continue
+							}
+
+							if k == "prefix" {
+								hasPrefix = true
+								m[k] = v
+							} else if k == "tags" {
+								hasTags = true
+								m[k] = v
+							}
+						}
+
+						if hasTags {
+							andBlock := filterBlock.Body().AppendNewBlock("and", nil)
+							andBlock.Body().SetAttributeRaw("tags", m["tags"].Expr().BuildTokens(nil))
+							if hasPrefix {
+								andBlock.Body().SetAttributeRaw("prefix", m["prefix"].Expr().BuildTokens(nil))
+							} else {
+								andBlock.Body().SetAttributeValue("prefix", cty.StringVal(""))
+							}
+						} else if hasPrefix {
+							filterBlock.Body().SetAttributeRaw("prefix", m["prefix"].Expr().BuildTokens(nil))
+						}
+					case "source_selection_criteria":
+						sscBlock := ruleBlock.Body().AppendNewBlock("source_selection_criteria", nil)
+
+						for _, innerSscBlock := range innerRuleBlock.Body().Blocks() {
+							switch innerSscBlock.Type() {
+							case "sse_kms_encrypted_objects":
+								sseBlock := sscBlock.Body().AppendNewBlock("sse_kms_encrypted_objects", nil)
+								for k, v := range innerSscBlock.Body().Attributes() {
+									if k != "enabled" {
+										continue
+									}
+
+									value := strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes()))
+
+									if value == "true" {
+										sseBlock.Body().SetAttributeValue("status", cty.StringVal("Enabled"))
+									} else if value == "false" {
+										sseBlock.Body().SetAttributeValue("status", cty.StringVal("Disabled"))
+									}
+								}
+							}
+						}
+					}
+
 				}
 			}
 
