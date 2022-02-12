@@ -170,7 +170,7 @@ func main() {
 		var grants []*hclwrite.Block
 		//var lifecycleRules []*hclwrite.Block
 		var logging *hclwrite.Block
-		//var objectLockConfig *hclwrite.Block
+		var objectLockConfig *hclwrite.Block
 		//var replicationConfig *hclwrite.Block
 		//var serverSideEncryptionConfig *hclwrite.Block
 		var website *hclwrite.Block
@@ -188,8 +188,8 @@ func main() {
 			//	lifecycleRules = append(lifecycleRules, subBlock)
 			case "logging":
 				logging = subBlock
-			//case "object_lock_configuration":
-			//	objectLockConfig = subBlock
+			case "object_lock_configuration":
+				objectLockConfig = subBlock
 			//case "replication_configuration":
 			//	replicationConfig = subBlock
 			//case "server_side_encryption_configuration":
@@ -347,6 +347,36 @@ func main() {
 
 			log.Printf("	  ✓ Created aws_s3_bucket_versioning.%s", newlabels[1])
 			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_versioning.%s,%s", newlabels[1], bucketPath))
+		}
+
+		if objectLockConfig != nil {
+			f.Body().AppendNewline()
+
+			newlabels := []string{"aws_s3_bucket_object_lock_configuration", fmt.Sprintf("%s_object_lock_configuration", labels[1])}
+			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
+			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
+			if err != nil {
+				continue
+			}
+
+			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+
+			for k, v := range objectLockConfig.Body().Attributes() {
+				switch k {
+				case "object_lock_enabled":
+					newBlock.Body().SetAttributeRaw("object_lock_enabled", v.Expr().BuildTokens(nil))
+				}
+			}
+
+			for _, ob := range objectLockConfig.Body().Blocks() {
+				// we only expect 1 rule as defined in the aws_s3_bucket schema
+				if ob.Type() == "rule" {
+					newBlock.Body().AppendBlock(ob)
+				}
+			}
+
+			log.Printf("	  ✓ Created aws_s3_bucket_object_lock_configuration.%s", newlabels[1])
+			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_object_lock_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if website != nil {

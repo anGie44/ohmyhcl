@@ -68,6 +68,17 @@ resource "aws_s3_bucket" "example" {
     target_prefix = "log/"
   }
 
+  object_lock_configuration {
+    object_lock_enabled = "Enabled"
+
+    rule {
+      default_retention {
+        mode = "COMPLIANCE"
+        days = 3
+      }
+    }
+  }
+
   policy = <<POLICY
   {
     "Version":"2008-10-17",
@@ -91,10 +102,10 @@ resource "aws_s3_bucket" "example" {
     enabled = true
   }
 
-   website {
-      index_document = "index.html"
-      error_document = "error.html"
-      routing_rules = <<EOF
+  website {
+    index_document = "index.html"
+    error_document = "error.html"
+    routing_rules  = <<EOF
   [
     {
       "Condition": {
