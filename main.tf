@@ -126,8 +126,19 @@ resource "aws_s3_bucket" "example" {
       delete_marker_replication_status = "Enabled"
 
       destination {
+        access_control_translation {
+          owner = "Destination"
+        }
+
         bucket        = aws_s3_bucket.destination.arn
         storage_class = "STANDARD"
+
+        metrics {}
+
+        replication_time {
+          status  = "Enabled"
+          minutes = 15
+        }
       }
 
       source_selection_criteria {
@@ -148,6 +159,16 @@ resource "aws_s3_bucket" "example" {
       destination {
         bucket        = aws_s3_bucket.destination2.arn
         storage_class = "STANDARD_IA"
+
+        metrics {
+          status  = "Enabled"
+          minutes = 15
+        }
+
+        replication_time {
+          status  = "Enabled"
+          minutes = 15
+        }
       }
     }
   }

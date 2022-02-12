@@ -128,8 +128,8 @@ resource "aws_s3_bucket_acl" "example_acl" {
   access_control_policy {
     grant {
       grantee {
-        id   = data.aws_canonical_user_id.current.id
         type = "CanonicalUser"
+        id   = data.aws_canonical_user_id.current.id
       }
       permission = "WRITE"
     }
@@ -178,14 +178,29 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
   bucket = aws_s3_bucket.example.id
   role   = aws_iam_role.role.arn
   rule {
-    id       = "rule1"
-    priority = 1
-    status   = "Enabled"
+    status = "Enabled"
     delete_marker_replication {
       status = "Enabled"
     }
+    id       = "rule1"
+    priority = 1
     filter {
       prefix = "prefix1"
+    }
+    destination {
+      bucket        = aws_s3_bucket.destination.arn
+      storage_class = "STANDARD"
+      access_control_translation {
+        owner = "Destination"
+      }
+      metrics {
+      }
+      replication_time {
+        status = "Enabled"
+        time {
+          minutes = 15
+        }
+      }
     }
     source_selection_criteria {
       sse_kms_encrypted_objects {
@@ -205,6 +220,22 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
         prefix = ""
       }
     }
+    destination {
+      bucket        = aws_s3_bucket.destination2.arn
+      storage_class = "STANDARD_IA"
+      metrics {
+        status = "Enabled"
+        event_threshold {
+          minutes = 15
+        }
+      }
+      replication_time {
+        status = "Enabled"
+        time {
+          minutes = 15
+        }
+      }
+    }
   }
 }
 
@@ -221,12 +252,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "example_server_si
 
 resource "aws_s3_bucket_website_configuration" "example_website_configuration" {
   bucket = aws_s3_bucket.example.id
-  index_document {
-    suffix = "index.html"
-  }
-  error_document {
-    key = "error.html"
-  }
   routing_rule {
     condition {
       key_prefix_equals = "docs/"
@@ -234,5 +259,11 @@ resource "aws_s3_bucket_website_configuration" "example_website_configuration" {
     redirect {
       replace_key_prefix_with = "documents/"
     }
+  }
+  index_document {
+    suffix = "index.html"
+  }
+  error_document {
+    key = "error.html"
   }
 }

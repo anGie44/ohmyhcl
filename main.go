@@ -428,6 +428,58 @@ func main() {
 					// Expected: filter, source_selection_criteria, destination
 					switch innerRuleBlock.Type() {
 					case "destination":
+						destBlock := ruleBlock.Body().AppendNewBlock("destination", nil)
+
+						for k, v := range innerRuleBlock.Body().Attributes() {
+							// Expected: account_id, bucket, storage_class, replica_kms_key_id
+							switch k {
+							case "account_id":
+								// This is represented as "account" in the new resource
+								destBlock.Body().SetAttributeRaw("account", v.Expr().BuildTokens(nil))
+							case "bucket", "storage_class":
+								destBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+							case "replica_kms_key_id":
+								// This is represented as an encryption_configuration block in the new resource
+								encryptionBlock := destBlock.Body().AppendNewBlock("encryption_configuration", nil)
+								encryptionBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+							}
+						}
+
+						for _, irb := range innerRuleBlock.Body().Blocks() {
+							// Expected: access_control_translation, replication_time, metrics
+							switch irb.Type() {
+							case "access_control_translation":
+								destBlock.Body().AppendBlock(irb)
+							case "metrics":
+								// This is represented as metrics.event_threshold.minutes and metrics.status in the new resource
+								metricsBlock := destBlock.Body().AppendNewBlock("metrics", nil)
+								for k, v := range irb.Body().Attributes() {
+									// Expect: minutes, status
+									switch k {
+									case "minutes":
+										// Need to wrap in a "event_threshold" block
+										etBlock := metricsBlock.Body().AppendNewBlock("event_threshold", nil)
+										etBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+									case "status":
+										metricsBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+									}
+								}
+							case "replication_time":
+								// This is represented as replication_time.time.minutes and replication_time.status in the new resource
+								repTimeBlock := destBlock.Body().AppendNewBlock("replication_time", nil)
+								for k, v := range irb.Body().Attributes() {
+									// Expect: minutes, status
+									switch k {
+									case "minutes":
+										// Need to wrap in a "time" block
+										timeBlock := repTimeBlock.Body().AppendNewBlock("time", nil)
+										timeBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+									case "status":
+										repTimeBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+									}
+								}
+							}
+						}
 
 					case "filter":
 						filterBlock := ruleBlock.Body().AppendNewBlock("filter", nil)
@@ -436,6 +488,7 @@ func main() {
 						m := make(map[string]*hclwrite.Attribute)
 
 						for k, v := range innerRuleBlock.Body().Attributes() {
+							// Expected: prefix and/or tags
 							if k != "prefix" && k != "tags" {
 								continue
 							}
