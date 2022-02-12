@@ -23,14 +23,19 @@ resource "random_pet" "example" {}
 
 resource "aws_s3_bucket" "b" {
   bucket = random_pet.example.id
+
 }
 
 resource "aws_s3_bucket" "log_bucket" {
   bucket = "my-example-log-bucket-44444"
+
 }
 
 resource "aws_s3_bucket" "example" {
   bucket = var.bucket_name
+
+
+
 
 
 
@@ -45,9 +50,28 @@ resource "aws_s3_bucket_acl" "b_acl" {
   acl    = "public-read"
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "b_server_side_encryption_configuration" {
+  bucket = aws_s3_bucket.b.id
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.arbitrary.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
+
 resource "aws_s3_bucket_acl" "log_bucket_acl" {
   bucket = aws_s3_bucket.log_bucket.id
   acl    = "private"
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "log_bucket_server_side_encryption_configuration" {
+  bucket = aws_s3_bucket.log_bucket.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
 }
 
 resource "aws_s3_bucket_accelerate_configuration" "example_acceleration_configuration" {
@@ -127,13 +151,53 @@ resource "aws_s3_bucket_acl" "example_acl" {
 
 resource "aws_s3_bucket_logging" "example_logging" {
   bucket        = aws_s3_bucket.example.id
-  target_prefix = "log/"
   target_bucket = aws_s3_bucket.log_bucket.id
+  target_prefix = "log/"
 }
 
 resource "aws_s3_bucket_versioning" "example_versioning" {
   bucket = aws_s3_bucket.example.id
   versioning_configuration {
     status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_object_lock_configuration" "example_object_lock_configuration" {
+  bucket              = aws_s3_bucket.example.id
+  object_lock_enabled = "Enabled"
+  rule {
+    default_retention {
+      mode = "COMPLIANCE"
+      days = 3
+    }
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "example_server_side_encryption_configuration" {
+  bucket = aws_s3_bucket.example.id
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.arbitrary.arn
+      sse_algorithm     = "aws:kms"
+    }
+    bucket_key_enabled = true
+  }
+}
+
+resource "aws_s3_bucket_website_configuration" "example_website_configuration" {
+  bucket = aws_s3_bucket.example.id
+  index_document {
+    suffix = "index.html"
+  }
+  error_document {
+    key = "error.html"
+  }
+  routing_rule {
+    condition {
+      key_prefix_equals = "docs/"
+    }
+    redirect {
+      replace_key_prefix_with = "documents/"
+    }
   }
 }

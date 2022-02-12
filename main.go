@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/zclconf/go-cty/cty"
 	"io/ioutil"
 	"log"
 	"os"
@@ -13,10 +11,12 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/mitchellh/cli"
+	"github.com/zclconf/go-cty/cty"
 )
 
 const S3Mode = "s3"
@@ -172,7 +172,7 @@ func main() {
 		var logging *hclwrite.Block
 		var objectLockConfig *hclwrite.Block
 		//var replicationConfig *hclwrite.Block
-		//var serverSideEncryptionConfig *hclwrite.Block
+		var serverSideEncryptionConfig *hclwrite.Block
 		var website *hclwrite.Block
 		var versioning *hclwrite.Block
 
@@ -192,8 +192,8 @@ func main() {
 				objectLockConfig = subBlock
 			//case "replication_configuration":
 			//	replicationConfig = subBlock
-			//case "server_side_encryption_configuration":
-			//	serverSideEncryptionConfig = subBlock
+			case "server_side_encryption_configuration":
+				serverSideEncryptionConfig = subBlock
 			case "versioning":
 				versioning = subBlock
 			case "website":
@@ -377,6 +377,29 @@ func main() {
 
 			log.Printf("	  ✓ Created aws_s3_bucket_object_lock_configuration.%s", newlabels[1])
 			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_object_lock_configuration.%s,%s", newlabels[1], bucketPath))
+		}
+
+		if serverSideEncryptionConfig != nil {
+			f.Body().AppendNewline()
+
+			newlabels := []string{"aws_s3_bucket_server_side_encryption_configuration", fmt.Sprintf("%s_server_side_encryption_configuration", labels[1])}
+			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
+			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
+			if err != nil {
+				continue
+			}
+
+			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+
+			for _, b := range serverSideEncryptionConfig.Body().Blocks() {
+				// we only expect 1 rule as defined in the aws_s3_bucket schema
+				if b.Type() == "rule" {
+					newBlock.Body().AppendBlock(b)
+				}
+			}
+
+			log.Printf("	  ✓ Created aws_s3_bucket_server_side_encryption_configuration.%s", newlabels[1])
+			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_server_side_encryption_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if website != nil {

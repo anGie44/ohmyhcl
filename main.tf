@@ -24,11 +24,28 @@ resource "random_pet" "example" {}
 resource "aws_s3_bucket" "b" {
   bucket = random_pet.example.id
   acl    = "public-read"
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        kms_master_key_id = aws_kms_key.arbitrary.arn
+        sse_algorithm     = "aws:kms"
+      }
+    }
+  }
 }
 
 resource "aws_s3_bucket" "log_bucket" {
   bucket = "my-example-log-bucket-44444"
   acl    = "private"
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
 }
 
 resource "aws_s3_bucket" "example" {
@@ -97,6 +114,16 @@ resource "aws_s3_bucket" "example" {
   POLICY
 
   request_payer = "Requester"
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        kms_master_key_id = aws_kms_key.arbitrary.arn
+        sse_algorithm     = "aws:kms"
+      }
+      bucket_key_enabled = true
+    }
+  }
 
   versioning {
     enabled = true
