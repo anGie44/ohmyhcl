@@ -335,9 +335,7 @@ func main() {
 						}
 					case "id":
 						ruleBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
-					case "prefix":
-						m[k] = v
-					case "tags":
+					case "prefix", "tags":
 						m[k] = v
 					}
 				}
@@ -582,13 +580,8 @@ func main() {
 
 						for k, v := range innerRuleBlock.Body().Attributes() {
 							// Expected: prefix and/or tags
-							if k != "prefix" && k != "tags" {
-								continue
-							}
-
-							if k == "prefix" {
-								m[k] = v
-							} else if k == "tags" {
+							switch k {
+							case "prefix", "tags":
 								m[k] = v
 							}
 						}
