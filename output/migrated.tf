@@ -75,9 +75,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "log_bucket_server
   }
 }
 
-resource "aws_s3_bucket_accelerate_configuration" "example_acceleration_configuration" {
+resource "aws_s3_bucket_request_payment_configuration" "example_request_payment_configuration" {
   bucket = aws_s3_bucket.example.id
-  status = "Enabled"
+  payer  = "Requester"
 }
 
 resource "aws_s3_bucket_policy" "example_policy" {
@@ -100,9 +100,9 @@ resource "aws_s3_bucket_policy" "example_policy" {
   POLICY
 }
 
-resource "aws_s3_bucket_request_payment_configuration" "example_request_payment_configuration" {
+resource "aws_s3_bucket_accelerate_configuration" "example_acceleration_configuration" {
   bucket = aws_s3_bucket.example.id
-  payer  = "Requester"
+  status = "Enabled"
 }
 
 resource "aws_s3_bucket_cors_configuration" "example_cors_configuration" {
@@ -128,8 +128,8 @@ resource "aws_s3_bucket_acl" "example_acl" {
   access_control_policy {
     grant {
       grantee {
-        type = "CanonicalUser"
         id   = data.aws_canonical_user_id.current.id
+        type = "CanonicalUser"
       }
       permission = "WRITE"
     }
@@ -152,8 +152,8 @@ resource "aws_s3_bucket_acl" "example_acl" {
 
 resource "aws_s3_bucket_logging" "example_logging" {
   bucket        = aws_s3_bucket.example.id
-  target_prefix = "log/"
   target_bucket = aws_s3_bucket.log_bucket.id
+  target_prefix = "log/"
 }
 
 resource "aws_s3_bucket_versioning" "example_versioning" {
@@ -178,12 +178,12 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
   bucket = aws_s3_bucket.example.id
   role   = aws_iam_role.role.arn
   rule {
-    status = "Enabled"
+    priority = 1
+    status   = "Enabled"
     delete_marker_replication {
       status = "Enabled"
     }
-    id       = "rule1"
-    priority = 1
+    id = "rule1"
     filter {
       prefix = "prefix1"
     }
@@ -209,9 +209,9 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
     }
   }
   rule {
+    id       = "rule2"
     priority = 2
     status   = "Enabled"
-    id       = "rule2"
     filter {
       and {
         tags = {
@@ -252,6 +252,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "example_server_si
 
 resource "aws_s3_bucket_website_configuration" "example_website_configuration" {
   bucket = aws_s3_bucket.example.id
+  error_document {
+    key = "error.html"
+  }
   routing_rule {
     condition {
       key_prefix_equals = "docs/"
@@ -262,8 +265,5 @@ resource "aws_s3_bucket_website_configuration" "example_website_configuration" {
   }
   index_document {
     suffix = "index.html"
-  }
-  error_document {
-    key = "error.html"
   }
 }

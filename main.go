@@ -85,94 +85,98 @@ func main() {
 		bucketPath := strings.Join(labels, ".")
 		log.Printf("[INFO] Migrating %s \n", bucketPath)
 
-		if v, ok := block.Body().Attributes()["acceleration_status"]; ok {
-			// Create Acceleration Status resource
-			block.Body().RemoveAttribute("acceleration_status")
-
-			f.Body().AppendNewline()
-
-			newlabels := []string{"aws_s3_bucket_accelerate_configuration", fmt.Sprintf("%s_acceleration_configuration", labels[1])}
-			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-
-			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
-				hcl.TraverseRoot{
-					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
-				},
-			})
-
-			newBlock.Body().SetAttributeRaw("status", v.Expr().BuildTokens(nil))
-
-			log.Printf("	  ✓ Created aws_s3_bucket_accelerate_configuration.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_accelerate_configuration.%s,%s", newlabels[1], bucketPath))
-		}
-
+		/////////////////////////////////////////// Attribute Handling /////////////////////////////////////////////////
+		// 1. acceleration_status
+		// 2. acl
+		// 3. policy
+		// 4. request_payer
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		var aclResourceBlock *hclwrite.Block
-		if v, ok := block.Body().Attributes()["acl"]; ok {
-			// Create ACL resource
-			block.Body().RemoveAttribute("acl")
 
-			f.Body().AppendNewline()
+		for k, v := range block.Body().Attributes() {
+			switch k {
+			case "acceleration_status":
+				block.Body().RemoveAttribute(k)
+				f.Body().AppendNewline()
 
-			newlabels := []string{"aws_s3_bucket_acl", fmt.Sprintf("%s_acl", labels[1])}
-			aclResourceBlock = f.Body().AppendNewBlock(block.Type(), newlabels)
+				newlabels := []string{"aws_s3_bucket_accelerate_configuration", fmt.Sprintf("%s_acceleration_configuration", labels[1])}
+				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
-			aclResourceBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
-				hcl.TraverseRoot{
-					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
-				},
-			})
+				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+					hcl.TraverseRoot{
+						Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+					},
+				})
 
-			aclResourceBlock.Body().SetAttributeRaw("acl", v.Expr().BuildTokens(nil))
+				newBlock.Body().SetAttributeRaw("status", v.Expr().BuildTokens(nil))
 
-			log.Printf("	  ✓ Created aws_s3_bucket_acl.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
+				log.Printf("	  ✓ Created aws_s3_bucket_accelerate_configuration.%s", newlabels[1])
+				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_accelerate_configuration.%s,%s", newlabels[1], bucketPath))
+			case "acl":
+				block.Body().RemoveAttribute(k)
+				f.Body().AppendNewline()
+
+				newlabels := []string{"aws_s3_bucket_acl", fmt.Sprintf("%s_acl", labels[1])}
+				aclResourceBlock = f.Body().AppendNewBlock(block.Type(), newlabels)
+
+				aclResourceBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+					hcl.TraverseRoot{
+						Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+					},
+				})
+
+				aclResourceBlock.Body().SetAttributeRaw("acl", v.Expr().BuildTokens(nil))
+
+				log.Printf("	  ✓ Created aws_s3_bucket_acl.%s", newlabels[1])
+				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
+			case "policy":
+				block.Body().RemoveAttribute(k)
+				f.Body().AppendNewline()
+
+				newlabels := []string{"aws_s3_bucket_policy", fmt.Sprintf("%s_policy", labels[1])}
+				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
+
+				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+					hcl.TraverseRoot{
+						Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+					},
+				})
+
+				newBlock.Body().SetAttributeRaw("policy", v.Expr().BuildTokens(nil))
+
+				log.Printf("	  ✓ Created aws_s3_bucket_policy.%s", newlabels[1])
+				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_policy.%s,%s", newlabels[1], bucketPath))
+			case "request_payer":
+				block.Body().RemoveAttribute(k)
+				f.Body().AppendNewline()
+
+				newlabels := []string{"aws_s3_bucket_request_payment_configuration", fmt.Sprintf("%s_request_payment_configuration", labels[1])}
+				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
+
+				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+					hcl.TraverseRoot{
+						Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+					},
+				})
+
+				newBlock.Body().SetAttributeRaw("payer", v.Expr().BuildTokens(nil))
+
+				log.Printf("	  ✓ Created aws_s3_bucket_request_payment_configuration.%s", newlabels[1])
+				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_request_payment_configuration.%s,%s", newlabels[1], bucketPath))
+			}
 		}
 
-		if v, ok := block.Body().Attributes()["policy"]; ok {
-			// Create ACL resource
-			block.Body().RemoveAttribute("policy")
-
-			f.Body().AppendNewline()
-
-			newlabels := []string{"aws_s3_bucket_policy", fmt.Sprintf("%s_policy", labels[1])}
-			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-
-			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
-				hcl.TraverseRoot{
-					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
-				},
-			})
-
-			newBlock.Body().SetAttributeRaw("policy", v.Expr().BuildTokens(nil))
-
-			log.Printf("	  ✓ Created aws_s3_bucket_policy.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_policy.%s,%s", newlabels[1], bucketPath))
-		}
-
-		if v, ok := block.Body().Attributes()["request_payer"]; ok {
-			// Create ACL resource
-			block.Body().RemoveAttribute("request_payer")
-
-			f.Body().AppendNewline()
-
-			newlabels := []string{"aws_s3_bucket_request_payment_configuration", fmt.Sprintf("%s_request_payment_configuration", labels[1])}
-			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-
-			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
-				hcl.TraverseRoot{
-					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
-				},
-			})
-
-			newBlock.Body().SetAttributeRaw("payer", v.Expr().BuildTokens(nil))
-
-			log.Printf("	  ✓ Created aws_s3_bucket_request_payment_configuration.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_request_payment_configuration.%s,%s", newlabels[1], bucketPath))
-		}
-
-		// Block Handling
+		///////////////////////////////////////////// Block Handling ///////////////////////////////////////////////////
 		// 1. Cors Rules
 		// 2. Grants
+		// 3. Lifecycle Rules
+		// 4. Logging
+		// 5. Object Lock Configuration
+		// 6. Replication Configuration
+		// 7. Server Side Encryption Configuration
+		// 8. Website
+		// 9. Versioning
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		var corsRules []*hclwrite.Block
 		var grants []*hclwrite.Block
 		//var lifecycleRules []*hclwrite.Block
@@ -252,10 +256,11 @@ func main() {
 					var permissions []string
 
 					for k, v := range grant.Body().Attributes() {
+						// Expected: id, type, uri, permissions
 						if k == "permissions" {
 							for _, t := range v.BuildTokens(nil) {
 								if p := string(t.Bytes); len(p) > 1 && p != k {
-									permissions = append(permissions, fmt.Sprintf("%q", p))
+									permissions = append(permissions, p)
 								}
 							}
 						} else {
@@ -267,12 +272,7 @@ func main() {
 						continue
 					}
 
-					// Need to do a traversal since we don't want to escape the "" around the string
-					grantBlock.Body().SetAttributeTraversal("permission", hcl.Traversal{
-						hcl.TraverseRoot{
-							Name: permissions[0],
-						},
-					})
+					grantBlock.Body().SetAttributeValue("permission", cty.StringVal(permissions[0]))
 
 					if len(permissions) > 1 {
 						// Create a new grant block for this permission
@@ -287,19 +287,14 @@ func main() {
 								grantee.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
 							}
 
-							// Need to do a traversal since we don't want to escape the "" around the string
-							grantBlock.Body().SetAttributeTraversal("permission", hcl.Traversal{
-								hcl.TraverseRoot{
-									Name: permission,
-								},
-							})
+							grantBlock.Body().SetAttributeValue("permission", cty.StringVal(permission))
 						}
 					}
 				}
 
 				log.Printf("	  ✓ Created aws_s3_bucket_acl.%s", newlabels[1])
 				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
-			}
+			} // TODO: Account for case where "acl" and "grant" are configured
 		}
 
 		if logging != nil {
@@ -315,6 +310,7 @@ func main() {
 			})
 
 			for k, v := range logging.Body().Attributes() {
+				// Expected: target_bucket, target_prefix
 				newBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
 			}
 
@@ -337,16 +333,18 @@ func main() {
 			versioningConfigBlock := newBlock.Body().AppendNewBlock("versioning_configuration", nil)
 
 			for k, v := range versioning.Body().Attributes() {
-				if k == "enabled" {
-					value := strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes()))
-					if value == "true" {
-						expr := hclwrite.NewExpressionLiteral(cty.StringVal("Enabled"))
-						versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
-					} else if value == "false" {
-						// This might not be accurate as "false" can indicate never enable versioning
-						expr := hclwrite.NewExpressionLiteral(cty.StringVal("Suspended"))
-						versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
-					}
+				// Expected: enabled
+				if k != "enabled" {
+					continue
+				}
+				value := strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes()))
+				if value == "true" {
+					expr := hclwrite.NewExpressionLiteral(cty.StringVal("Enabled"))
+					versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
+				} else if value == "false" {
+					// This might not be accurate as "false" can indicate never enable versioning
+					expr := hclwrite.NewExpressionLiteral(cty.StringVal("Suspended"))
+					versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
 				}
 			}
 
@@ -367,10 +365,11 @@ func main() {
 			})
 
 			for k, v := range objectLockConfig.Body().Attributes() {
-				switch k {
-				case "object_lock_enabled":
-					newBlock.Body().SetAttributeRaw("object_lock_enabled", v.Expr().BuildTokens(nil))
+				// Expected: object_lock_enabled
+				if k != "object_lock_enabled" {
+					continue
 				}
+				newBlock.Body().SetAttributeRaw("object_lock_enabled", v.Expr().BuildTokens(nil))
 			}
 
 			for _, ob := range objectLockConfig.Body().Blocks() {
@@ -398,16 +397,17 @@ func main() {
 			})
 
 			for k, v := range replicationConfig.Body().Attributes() {
-				if k == "role" {
-					newBlock.Body().SetAttributeRaw("role", v.Expr().BuildTokens(nil))
+				// Expected: role
+				if k != "role" {
+					continue
 				}
+				newBlock.Body().SetAttributeRaw("role", v.Expr().BuildTokens(nil))
 			}
 
 			for _, b := range replicationConfig.Body().Blocks() {
 				ruleBlock := newBlock.Body().AppendNewBlock("rule", nil)
 
 				if b.Type() != "rules" {
-
 					// not expected to hit this as the replication_configuration block only has the rules block
 					continue
 				}
@@ -536,7 +536,6 @@ func main() {
 							}
 						}
 					}
-
 				}
 			}
 
