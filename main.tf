@@ -113,6 +113,36 @@ resource "aws_s3_bucket" "example" {
   }
   POLICY
 
+  replication_configuration {
+    role = aws_iam_role.role.arn
+    rules {
+      id       = "rule1"
+      priority = 1
+      status   = "Enabled"
+      filter {
+        prefix = "prefix1"
+      }
+      destination {
+        bucket        = aws_s3_bucket.destination.arn
+        storage_class = "STANDARD"
+      }
+    }
+    rules {
+      id       = "rule2"
+      priority = 2
+      status   = "Enabled"
+      filter {
+        tags = {
+          Key2 = "Value2"
+        }
+      }
+      destination {
+        bucket        = aws_s3_bucket.destination2.arn
+        storage_class = "STANDARD_IA"
+      }
+    }
+  }
+
   request_payer = "Requester"
 
   server_side_encryption_configuration {

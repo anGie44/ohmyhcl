@@ -44,6 +44,7 @@ resource "aws_s3_bucket" "example" {
 
 
 
+
 }
 resource "aws_s3_bucket_acl" "b_acl" {
   bucket = aws_s3_bucket.b.id
@@ -170,6 +171,21 @@ resource "aws_s3_bucket_object_lock_configuration" "example_object_lock_configur
       mode = "COMPLIANCE"
       days = 3
     }
+  }
+}
+
+resource "aws_s3_bucket_replication_configuration" "example_replication_configuration" {
+  bucket = aws_s3_bucket.example.id
+  role   = aws_iam_role.role.arn
+  rule {
+    id       = "rule1"
+    priority = 1
+    status   = "Enabled"
+  }
+  rule {
+    id       = "rule2"
+    priority = 2
+    status   = "Enabled"
   }
 }
 

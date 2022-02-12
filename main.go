@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -94,11 +93,13 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_accelerate_configuration", fmt.Sprintf("%s_acceleration_configuration", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
-			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
+
 			newBlock.Body().SetAttributeRaw("status", v.Expr().BuildTokens(nil))
 
 			log.Printf("	  ✓ Created aws_s3_bucket_accelerate_configuration.%s", newlabels[1])
@@ -114,11 +115,13 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_acl", fmt.Sprintf("%s_acl", labels[1])}
 			aclResourceBlock = f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
-			aclResourceBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+
+			aclResourceBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
+
 			aclResourceBlock.Body().SetAttributeRaw("acl", v.Expr().BuildTokens(nil))
 
 			log.Printf("	  ✓ Created aws_s3_bucket_acl.%s", newlabels[1])
@@ -133,11 +136,13 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_policy", fmt.Sprintf("%s_policy", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
-			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
+
 			newBlock.Body().SetAttributeRaw("policy", v.Expr().BuildTokens(nil))
 
 			log.Printf("	  ✓ Created aws_s3_bucket_policy.%s", newlabels[1])
@@ -152,11 +157,13 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_request_payment_configuration", fmt.Sprintf("%s_request_payment_configuration", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
-			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
+
 			newBlock.Body().SetAttributeRaw("payer", v.Expr().BuildTokens(nil))
 
 			log.Printf("	  ✓ Created aws_s3_bucket_request_payment_configuration.%s", newlabels[1])
@@ -171,7 +178,7 @@ func main() {
 		//var lifecycleRules []*hclwrite.Block
 		var logging *hclwrite.Block
 		var objectLockConfig *hclwrite.Block
-		//var replicationConfig *hclwrite.Block
+		var replicationConfig *hclwrite.Block
 		var serverSideEncryptionConfig *hclwrite.Block
 		var website *hclwrite.Block
 		var versioning *hclwrite.Block
@@ -190,8 +197,8 @@ func main() {
 				logging = subBlock
 			case "object_lock_configuration":
 				objectLockConfig = subBlock
-			//case "replication_configuration":
-			//	replicationConfig = subBlock
+			case "replication_configuration":
+				replicationConfig = subBlock
 			case "server_side_encryption_configuration":
 				serverSideEncryptionConfig = subBlock
 			case "versioning":
@@ -207,12 +214,12 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_cors_configuration", fmt.Sprintf("%s_cors_configuration", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
 
-			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
 
 			for _, b := range corsRules {
 				newBlock.Body().AppendBlock(b)
@@ -229,12 +236,13 @@ func main() {
 
 				newlabels := []string{"aws_s3_bucket_acl", fmt.Sprintf("%s_acl", labels[1])}
 				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-				expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-				if err != nil {
-					continue
-				}
 
-				newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+					hcl.TraverseRoot{
+						Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+					},
+				})
+
 				acpBlock := newBlock.Body().AppendNewBlock("access_control_policy", nil)
 
 				for _, grant := range grants {
@@ -259,11 +267,12 @@ func main() {
 						continue
 					}
 
-					expr, err := buildExpression("permission", permissions[0])
-					if err != nil {
-						continue
-					}
-					grantBlock.Body().SetAttributeRaw("permission", expr.BuildTokens(nil))
+					// Need to do a traversal since we don't want to escape the "" around the string
+					grantBlock.Body().SetAttributeTraversal("permission", hcl.Traversal{
+						hcl.TraverseRoot{
+							Name: permissions[0],
+						},
+					})
 
 					if len(permissions) > 1 {
 						// Create a new grant block for this permission
@@ -278,12 +287,12 @@ func main() {
 								grantee.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
 							}
 
-							expr, err := buildExpression("permission", permission)
-							if err != nil {
-								continue
-							}
-
-							grantBlock.Body().SetAttributeRaw("permission", expr.BuildTokens(nil))
+							// Need to do a traversal since we don't want to escape the "" around the string
+							grantBlock.Body().SetAttributeTraversal("permission", hcl.Traversal{
+								hcl.TraverseRoot{
+									Name: permission,
+								},
+							})
 						}
 					}
 				}
@@ -298,12 +307,13 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_logging", fmt.Sprintf("%s_logging", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
 
-			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
+
 			for k, v := range logging.Body().Attributes() {
 				newBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
 			}
@@ -317,29 +327,24 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_versioning", fmt.Sprintf("%s_versioning", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
 
-			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
+
 			versioningConfigBlock := newBlock.Body().AppendNewBlock("versioning_configuration", nil)
 
 			for k, v := range versioning.Body().Attributes() {
 				if k == "enabled" {
 					value := strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes()))
 					if value == "true" {
-						expr, err := buildExpression("status", fmt.Sprintf("%q", "Enabled"))
-						if err != nil {
-							continue
-						}
+						expr := hclwrite.NewExpressionLiteral(cty.StringVal("Enabled"))
 						versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
 					} else if value == "false" {
 						// This might not be accurate as "false" can indicate never enable versioning
-						expr, err := buildExpression("status", fmt.Sprintf("%q", "Suspended"))
-						if err != nil {
-							continue
-						}
+						expr := hclwrite.NewExpressionLiteral(cty.StringVal("Suspended"))
 						versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
 					}
 				}
@@ -354,12 +359,12 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_object_lock_configuration", fmt.Sprintf("%s_object_lock_configuration", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
 
-			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
 
 			for k, v := range objectLockConfig.Body().Attributes() {
 				switch k {
@@ -370,13 +375,55 @@ func main() {
 
 			for _, ob := range objectLockConfig.Body().Blocks() {
 				// we only expect 1 rule as defined in the aws_s3_bucket schema
-				if ob.Type() == "rule" {
-					newBlock.Body().AppendBlock(ob)
+				if ob.Type() != "rule" {
+					continue
 				}
+				newBlock.Body().AppendBlock(ob)
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_object_lock_configuration.%s", newlabels[1])
 			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_object_lock_configuration.%s,%s", newlabels[1], bucketPath))
+		}
+
+		if replicationConfig != nil {
+			f.Body().AppendNewline()
+
+			newlabels := []string{"aws_s3_bucket_replication_configuration", fmt.Sprintf("%s_replication_configuration", labels[1])}
+			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
+
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
+
+			for k, v := range replicationConfig.Body().Attributes() {
+				if k == "role" {
+					newBlock.Body().SetAttributeRaw("role", v.Expr().BuildTokens(nil))
+				}
+			}
+
+			for _, b := range replicationConfig.Body().Blocks() {
+				ruleBlock := newBlock.Body().AppendNewBlock("rule", nil)
+
+				if b.Type() != "rules" {
+
+					// not expected to hit this as the replication_configuration block only has the rules block
+					continue
+				}
+
+				for k, v := range b.Body().Attributes() {
+					// Expected: id, prefix, status, priority, delete_marker_replication_status
+					switch k {
+					case "id", "prefix", "status", "priority":
+						ruleBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+					case "delete_marker_replication_status":
+					}
+				}
+			}
+
+			log.Printf("	  ✓ Created aws_s3_bucket_replication_configuration.%s", newlabels[1])
+			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_replication_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if serverSideEncryptionConfig != nil {
@@ -384,18 +431,19 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_server_side_encryption_configuration", fmt.Sprintf("%s_server_side_encryption_configuration", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
 
-			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
 
 			for _, b := range serverSideEncryptionConfig.Body().Blocks() {
 				// we only expect 1 rule as defined in the aws_s3_bucket schema
-				if b.Type() == "rule" {
-					newBlock.Body().AppendBlock(b)
+				if b.Type() != "rule" {
+					continue
 				}
+				newBlock.Body().AppendBlock(b)
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_server_side_encryption_configuration.%s", newlabels[1])
@@ -407,12 +455,12 @@ func main() {
 
 			newlabels := []string{"aws_s3_bucket_website_configuration", fmt.Sprintf("%s_website_configuration", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-			expr, err := buildExpression("bucket", fmt.Sprintf("%s.%s.id", labels[0], labels[1]))
-			if err != nil {
-				continue
-			}
 
-			newBlock.Body().SetAttributeRaw("bucket", expr.BuildTokens(nil))
+			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
+				hcl.TraverseRoot{
+					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+				},
+			})
 
 			for k, v := range website.Body().Attributes() {
 				switch k {
@@ -499,41 +547,4 @@ func main() {
 		newFile.WriteString(fmt.Sprintf("%s\n", r))
 	}
 	newFile.Close()
-}
-
-// Helper Functions
-// Author: https://github.com/minamijoyo/hcledit
-func safeParseConfig(src []byte, filename string, start hcl.Pos) (f *hclwrite.File, e error) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("[DEBUG] failed to parse input: %s\nstacktrace: %s", filename, string(debug.Stack()))
-			// Set a return value from panic recover
-			e = fmt.Errorf(`failed to parse input: %s
-panic: %s
-This may be caused by a bug in the hclwrite parser`, filename, err)
-		}
-	}()
-
-	f, diags := hclwrite.ParseConfig(src, filename, start)
-
-	if diags.HasErrors() {
-		return nil, fmt.Errorf("failed to parse input: %s", diags)
-	}
-
-	return f, nil
-}
-
-func buildExpression(name string, value string) (*hclwrite.Expression, error) {
-	src := name + " = " + value
-	f, err := safeParseConfig([]byte(src), "generated_by_buildExpression", hcl.Pos{Line: 1, Column: 1})
-	if err != nil {
-		return nil, fmt.Errorf("failed to build expression at the parse phase: %s", err)
-	}
-
-	attr := f.Body().GetAttribute(name)
-	if attr == nil {
-		return nil, fmt.Errorf("failed to build expression at the get phase. name = %s, value = %s", name, value)
-	}
-
-	return attr.Expr(), nil
 }
