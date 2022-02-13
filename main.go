@@ -14,21 +14,29 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
+	"github.com/minamijoyo/tfupdate/tfupdate"
 	"github.com/mitchellh/cli"
+	"github.com/spf13/afero"
 	"github.com/zclconf/go-cty/cty"
 )
 
-const S3Mode = "s3"
+const (
+	ServiceS3              = "s3"
+	ProviderAWS            = "aws"
+	DefaultProviderVersion = "4.0"
+)
 
 var (
-	mode       = flag.String("mode", "", "service to migrate e.g. s3; required")
-	inputFile  = flag.String("input", "", "input file; required")
-	outputFile = flag.String("output", "", "output file; required")
+	service         = flag.String("service", "", "service to migrate e.g. s3; required")
+	provider        = flag.String("provider", "", "terraform provider e.g. aws; required")
+	providerVersion = flag.String("provider-version", "", "version of provider e.g. 4.0")
+	inputFile       = flag.String("input", "", "input file; required")
+	outputFile      = flag.String("output", "", "output file; required")
 )
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage:\n")
-	fmt.Fprintf(os.Stderr, "\tmain.go [flags] -mode <mode> -input <input-file> -output <output-file>\n\n")
+	fmt.Fprintf(os.Stderr, "\tmain.go [flags] -provider <provider> -service <service> -input <input-file> -output <output-file>\n\n")
 	fmt.Fprintf(os.Stderr, "Flags:\n")
 	flag.PrintDefaults()
 }
@@ -37,9 +45,9 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
-	if *mode == "" || *inputFile == "" || *outputFile == "" {
+	if *provider == "" || *service == "" || *inputFile == "" || *outputFile == "" {
 		flag.Usage()
-		os.Exit(2)
+		os.Exit(1)
 	}
 
 	ui := &cli.BasicUi{
@@ -48,18 +56,31 @@ func main() {
 		ErrorWriter: os.Stderr,
 	}
 
-	if *mode != S3Mode {
-		ui.Error(fmt.Sprintf("Mode (%s) not implemented", *mode))
-		os.Exit(0)
+	if *provider != ProviderAWS {
+		ui.Error(fmt.Sprintf("Provider (%s) not implemented", *provider))
+		return
 	}
 
-	fBytes, err := ioutil.ReadFile(*inputFile)
+	if *service != ServiceS3 {
+		ui.Error(fmt.Sprintf("Service (%s) not implemented", *service))
+		return
+	}
+
+	if *providerVersion == "" {
+		*providerVersion = DefaultProviderVersion
+	}
+
+	fs := afero.NewOsFs()
+	file, err := fs.Open(*inputFile)
+
 	if err != nil {
 		ui.Error(fmt.Sprintf("error loading configuration: %s", err))
 		os.Exit(1)
 	}
 
-	f, diags := hclwrite.ParseConfig(fBytes, *inputFile, hcl.Pos{Line: 1, Column: 1})
+	input, err := ioutil.ReadAll(file)
+
+	f, diags := hclwrite.ParseConfig(input, *inputFile, hcl.Pos{Line: 1, Column: 1})
 
 	if diags != nil {
 		for _, diag := range diags {
@@ -70,16 +91,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Update Provider Version
+	p, err := tfupdate.NewProviderUpdater("aws", *providerVersion)
+	if err != nil {
+		log.Printf("[ERROR] error creating tfupdate.ProviderUpdater: %s", err)
+	}
+
+	if err := p.Update(f); err != nil {
+		log.Printf("[ERROR] error updating provider configurations to %s: %s", *providerVersion, err)
+	}
+
 	var newResources []string
 
 	for _, block := range f.Body().Blocks() {
 		if block == nil {
 			continue
 		}
-
-		// TODO:
-		// Account for the terraform.required_providers.aws.version (update to "~> 4.0")
-		// Account for any provider.aws blocks that configure a specific version (update to "~> 4.0")
 
 		labels := block.Labels()
 		if len(labels) != 2 || labels[0] != "aws_s3_bucket" {
@@ -744,8 +771,10 @@ func main() {
 	nf.Write(tmp)
 
 	newFile, err := os.Create(filepath.Join(path, fmt.Sprintf("output/%s", "resources.csv")))
+
+	defer newFile.Close()
+
 	for _, r := range newResources {
 		newFile.WriteString(fmt.Sprintf("%s\n", r))
 	}
-	newFile.Close()
 }

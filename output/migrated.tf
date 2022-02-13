@@ -1,12 +1,20 @@
 terraform {
   required_providers {
     aws = {
-      version = "3.74.0"
+      version = "~> 4.0"
     }
   }
 }
 
-provider "aws" {}
+terraform {
+  required_providers {
+    aws = "~> 4.0"
+  }
+}
+
+provider "aws" {
+  version = "~> 4.0"
+}
 
 provider "random" {}
 
@@ -80,9 +88,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "log_bucket_server
   }
 }
 
-resource "aws_s3_bucket_request_payment_configuration" "example_request_payment_configuration" {
+resource "aws_s3_bucket_accelerate_configuration" "example_acceleration_configuration" {
   bucket = aws_s3_bucket.example.id
-  payer  = "Requester"
+  status = "Enabled"
 }
 
 resource "aws_s3_bucket_policy" "example_policy" {
@@ -105,9 +113,9 @@ resource "aws_s3_bucket_policy" "example_policy" {
   POLICY
 }
 
-resource "aws_s3_bucket_accelerate_configuration" "example_acceleration_configuration" {
+resource "aws_s3_bucket_request_payment_configuration" "example_request_payment_configuration" {
   bucket = aws_s3_bucket.example.id
-  status = "Enabled"
+  payer  = "Requester"
 }
 
 resource "aws_s3_bucket_cors_configuration" "example_cors_configuration" {
@@ -158,8 +166,8 @@ resource "aws_s3_bucket_acl" "example_acl" {
 resource "aws_s3_bucket_lifecycle_configuration" "example_lifecycle_configuration" {
   bucket = aws_s3_bucket.example.id
   rule {
-    status = "Enabled"
     id     = "id2"
+    status = "Enabled"
     filter {
       prefix = "path2/"
     }
@@ -168,8 +176,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "example_lifecycle_configuratio
     }
   }
   rule {
-    id     = "id5"
     status = "Enabled"
+    id     = "id5"
     filter {
       and {
         tags = {
@@ -211,8 +219,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "example_lifecycle_configuratio
     }
   }
   rule {
-    status = "Enabled"
     id     = "id3"
+    status = "Enabled"
     filter {
       prefix = "path3/"
     }
@@ -282,9 +290,9 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
     }
   }
   rule {
-    id       = "rule2"
     priority = 2
     status   = "Enabled"
+    id       = "rule2"
     filter {
       and {
         tags = {
