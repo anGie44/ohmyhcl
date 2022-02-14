@@ -1,107 +1,90 @@
-package main
+package tfmigrate
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
-	"github.com/minamijoyo/tfupdate/tfupdate"
-	"github.com/mitchellh/cli"
-	"github.com/spf13/afero"
 	"github.com/zclconf/go-cty/cty"
 )
 
 const (
-	ServiceS3              = "s3"
-	ProviderAWS            = "aws"
-	DefaultProviderVersion = "4.0"
+	ResourceTypeAwsS3Bucket = "aws_s3_bucket"
 )
 
-var (
-	provider        = flag.String("provider", "", "terraform provider e.g. aws; required")
-	providerVersion = flag.String("provider-version", "", "version of provider e.g. 4.0")
-	service         = flag.String("service", "", "service to migrate e.g. s3; required")
-	inputFile       = flag.String("input", "", "input file; required")
-	outputFile      = flag.String("output", "", "output file; required")
-)
-
-func usage() {
-	fmt.Fprintf(os.Stderr, "Usage:\n")
-	fmt.Fprintf(os.Stderr, "\tmain.go [flags] -provider <provider> -service <service> -input <input-file> -output <output-file>\n\n")
-	fmt.Fprintf(os.Stderr, "Flags:\n")
-	flag.PrintDefaults()
+type ProviderAwsS3BucketMigrator struct {
+	ignoreArguments     []string
+	ignoreResourceNames []string
+	newResourceNames    []string
 }
 
-func main() {
-	flag.Usage = usage
-	flag.Parse()
+func NewProviderAwsS3BucketMigrator(ignoreArguments, ignoreResourceNames []string) (Migrator, error) {
+	return &ProviderAwsS3BucketMigrator{
+		ignoreArguments:     ignoreArguments,
+		ignoreResourceNames: ignoreResourceNames,
+	}, nil
+}
 
-	if *provider == "" || *service == "" || *inputFile == "" || *outputFile == "" {
-		flag.Usage()
-		os.Exit(1)
+func (m *ProviderAwsS3BucketMigrator) SkipResourceName(resourceName string) bool {
+	if m == nil {
+		return false
 	}
 
-	ui := &cli.BasicUi{
-		Reader:      os.Stdin,
-		Writer:      os.Stdout,
-		ErrorWriter: os.Stderr,
+	if len(m.ignoreResourceNames) == 0 {
+		return false
 	}
 
-	if *provider != ProviderAWS {
-		ui.Error(fmt.Sprintf("Provider (%s) not implemented", *provider))
-		return
-	}
-
-	if *service != ServiceS3 {
-		ui.Error(fmt.Sprintf("Service (%s) not implemented", *service))
-		return
-	}
-
-	if *providerVersion == "" {
-		*providerVersion = DefaultProviderVersion
-	}
-
-	fs := afero.NewOsFs()
-	file, err := fs.Open(*inputFile)
-
-	if err != nil {
-		ui.Error(fmt.Sprintf("error loading configuration: %s", err))
-		os.Exit(1)
-	}
-
-	input, err := ioutil.ReadAll(file)
-
-	f, diags := hclwrite.ParseConfig(input, *inputFile, hcl.Pos{Line: 1, Column: 1})
-
-	if diags != nil {
-		for _, diag := range diags {
-			if diag.Error() != "" {
-				ui.Error(fmt.Sprintf("error loading configuration: %s", diag.Error()))
-			}
+	for _, rn := range m.ignoreResourceNames {
+		if rn == resourceName {
+			return true
 		}
-		os.Exit(1)
 	}
 
-	// Update Provider Version
-	p, err := tfupdate.NewProviderUpdater("aws", *providerVersion)
-	if err != nil {
-		log.Printf("[ERROR] error creating tfupdate.ProviderUpdater: %s", err)
+	return false
+}
+
+func (m *ProviderAwsS3BucketMigrator) SkipArgument(arg string) bool {
+	if m == nil {
+		return false
 	}
 
-	if err := p.Update(f); err != nil {
-		log.Printf("[ERROR] error updating provider configurations to %s: %s", *providerVersion, err)
+	if len(m.ignoreArguments) == 0 {
+		return false
 	}
 
-	var newResources []string
+	for _, argument := range m.ignoreArguments {
+		if argument == arg {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *ProviderAwsS3BucketMigrator) Migrate(f *hclwrite.File) error {
+	if err := m.migrateS3BucketResources(f); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *ProviderAwsS3BucketMigrator) Migrations() []string {
+	if m == nil {
+		return nil
+	}
+	return m.newResourceNames
+}
+
+func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File) error {
+	if f == nil || f.Body() == nil {
+		return fmt.Errorf("error migrating (%s) resources: empty file", ResourceTypeAwsS3Bucket)
+	}
 
 	for _, block := range f.Body().Blocks() {
 		if block == nil {
@@ -109,7 +92,11 @@ func main() {
 		}
 
 		labels := block.Labels()
-		if len(labels) != 2 || labels[0] != "aws_s3_bucket" {
+		if len(labels) != 2 || labels[0] != ResourceTypeAwsS3Bucket {
+			continue
+		}
+
+		if m.SkipResourceName(labels[1]) {
 			continue
 		}
 
@@ -125,6 +112,9 @@ func main() {
 		var aclResourceBlock *hclwrite.Block
 
 		for k, v := range block.Body().Attributes() {
+			if m.SkipArgument(k) {
+				continue
+			}
 			switch k {
 			case "acceleration_status":
 				block.Body().RemoveAttribute(k)
@@ -142,7 +132,7 @@ func main() {
 				newBlock.Body().SetAttributeRaw("status", v.Expr().BuildTokens(nil))
 
 				log.Printf("	  ✓ Created aws_s3_bucket_accelerate_configuration.%s", newlabels[1])
-				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_accelerate_configuration.%s,%s", newlabels[1], bucketPath))
+				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_accelerate_configuration.%s,%s", newlabels[1], bucketPath))
 			case "acl":
 				block.Body().RemoveAttribute(k)
 				f.Body().AppendNewline()
@@ -159,7 +149,7 @@ func main() {
 				aclResourceBlock.Body().SetAttributeRaw("acl", v.Expr().BuildTokens(nil))
 
 				log.Printf("	  ✓ Created aws_s3_bucket_acl.%s", newlabels[1])
-				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
+				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
 			case "policy":
 				block.Body().RemoveAttribute(k)
 				f.Body().AppendNewline()
@@ -176,7 +166,7 @@ func main() {
 				newBlock.Body().SetAttributeRaw("policy", v.Expr().BuildTokens(nil))
 
 				log.Printf("	  ✓ Created aws_s3_bucket_policy.%s", newlabels[1])
-				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_policy.%s,%s", newlabels[1], bucketPath))
+				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_policy.%s,%s", newlabels[1], bucketPath))
 			case "request_payer":
 				block.Body().RemoveAttribute(k)
 				f.Body().AppendNewline()
@@ -193,7 +183,7 @@ func main() {
 				newBlock.Body().SetAttributeRaw("payer", v.Expr().BuildTokens(nil))
 
 				log.Printf("	  ✓ Created aws_s3_bucket_request_payment_configuration.%s", newlabels[1])
-				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_request_payment_configuration.%s,%s", newlabels[1], bucketPath))
+				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_request_payment_configuration.%s,%s", newlabels[1], bucketPath))
 			}
 		}
 
@@ -219,6 +209,10 @@ func main() {
 		var versioning *hclwrite.Block
 
 		for _, subBlock := range block.Body().Blocks() {
+			if m.SkipArgument(subBlock.Type()) {
+				continue
+			}
+
 			block.Body().RemoveBlock(subBlock)
 
 			switch t := subBlock.Type(); t {
@@ -261,7 +255,7 @@ func main() {
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_cors_configuration.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_cors_configuration.%s,%s", newlabels[1], bucketPath))
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_cors_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if len(grants) > 0 {
@@ -324,7 +318,7 @@ func main() {
 				}
 
 				log.Printf("	  ✓ Created aws_s3_bucket_acl.%s", newlabels[1])
-				newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
+				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
 			} // TODO: Account for case where "acl" and "grant" are configured
 		}
 
@@ -413,7 +407,7 @@ func main() {
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_lifecycle_configuration.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_lifecycle_configuration.%s,%s", newlabels[1], bucketPath))
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_lifecycle_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if logging != nil {
@@ -434,7 +428,7 @@ func main() {
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_logging.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_logging.%s,%s", newlabels[1], bucketPath))
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_logging.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if versioning != nil {
@@ -468,7 +462,7 @@ func main() {
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_versioning.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_versioning.%s,%s", newlabels[1], bucketPath))
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_versioning.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if objectLockConfig != nil {
@@ -500,7 +494,7 @@ func main() {
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_object_lock_configuration.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_object_lock_configuration.%s,%s", newlabels[1], bucketPath))
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_object_lock_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if replicationConfig != nil {
@@ -651,7 +645,7 @@ func main() {
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_replication_configuration.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_replication_configuration.%s,%s", newlabels[1], bucketPath))
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_replication_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if serverSideEncryptionConfig != nil {
@@ -675,7 +669,7 @@ func main() {
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_server_side_encryption_configuration.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_server_side_encryption_configuration.%s,%s", newlabels[1], bucketPath))
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_server_side_encryption_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 
 		if website != nil {
@@ -753,55 +747,9 @@ func main() {
 			}
 
 			log.Printf("	  ✓ Created aws_s3_bucket_website_configuration.%s", newlabels[1])
-			newResources = append(newResources, fmt.Sprintf("aws_s3_bucket_website_configuration.%s,%s", newlabels[1], bucketPath))
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_website_configuration.%s,%s", newlabels[1], bucketPath))
 		}
 	}
 
-	tmp := hclwrite.Format(f.Bytes())
-
-	if err := os.MkdirAll("output", 0755); err != nil {
-		log.Printf("[ERROR] error creating output directory: %s", err)
-		return
-	}
-
-	path, err := os.Getwd()
-	if err != nil {
-		log.Printf("[ERROR] error getting working directory: %s", err)
-		return
-	}
-
-	newFileName := filepath.Join(path, fmt.Sprintf("output/%s", *outputFile))
-	nf, err := os.Create(newFileName)
-	if err != nil {
-		log.Printf("[ERROR] error creating (%s) file: %s", newFileName, err)
-		return
-	}
-
-	defer nf.Close()
-
-	_, err = nf.WriteString("# Code Generated by ohmyhcl; REVIEW BEFORE APPLYING.\n")
-	if err != nil {
-		log.Printf("[ERROR] error writing  header to file (%s): %s", newFileName, err)
-		return
-	}
-
-	_, err = nf.Write(tmp)
-	if err != nil {
-		log.Printf("[ERROR] error writing migrations to file (%s): %s", newFileName, err)
-		return
-	}
-
-	newFile, err := os.Create(filepath.Join(path, fmt.Sprintf("output/%s", "resources.csv")))
-	if err != nil {
-		log.Printf("[ERROR] error creating (%s): %s", newFileName, err)
-		return
-	}
-
-	defer newFile.Close()
-
-	for _, r := range newResources {
-		if _, err := newFile.WriteString(fmt.Sprintf("%s\n", r)); err != nil {
-			log.Printf("[ERROR] error writing (%s) to file (%s): %s", r, newFileName, err)
-		}
-	}
+	return nil
 }

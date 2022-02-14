@@ -1,5 +1,7 @@
 #/usr/local/bin/bash
 
+# TEST
+
 OUTFILE=import.sh
 ERRORFILE=errors.log
 
@@ -14,7 +16,7 @@ if [ -z "$TFSTATE_JSON" ]; then
 fi
 
 # 2. Run Migration
-go run main.go -provider aws -provider-version "~> 4.0" -service s3 -input main.tf -output migrated.tf
+tfmigrate resource aws_s3_bucket ./terraform -provider-version "~> 4.0"
 
 #. 3. For each new resource, find the corresponding bucket ID in tfstate to generate import statements
 while IFS=, read -r field1 field2
