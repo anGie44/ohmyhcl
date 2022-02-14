@@ -34,7 +34,7 @@ Arguments
   RESOURCE_TYPE      The provider resource type (e.g. aws_s3_bucket)
   PATH               A path of file or directory to update
 Options:
-  -ignore-arguments      The arguments to migrate (default: all)
+  --ignore-arguments     The arguments to migrate (default: all)
                          Set the flag with values separated by commas (e.g. --ignore-arguments="acl,grant") or set the flag multiple times.
   --ignore-names         The resource names to migrate (default: all)
                          Set the flag with values separated by commas (e.g. --ignore-names="example,log_bucket") or set the flag multiple times.
@@ -89,3 +89,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "example_server_si
   }
 }
 ```
+
+## Output Logging
+
+Set the environment variable `TFMIGRATE_LOG` to the log-level of choice. Valid values include: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`.
