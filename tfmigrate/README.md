@@ -93,3 +93,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "example_server_si
 ## Output Logging
 
 Set the environment variable `TFMIGRATE_LOG` to the log-level of choice. Valid values include: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`.
+
+## Credit
+
+Credit is due to [@minamijoyo](https://github.com/minamijoyo) (and community contributors) and their [`tfupdate`](https://github.com/minamijoyo/tfupdate) and [`hcledit`](https://github.com/minamijoyo/hcledit) projects,
+as `tfmigrate` is in essence an extension to that functionality and much of the foundation and CLI implementation of this tool takes from their existing code and patterns. 
+The goal of this project was to develop a tool, quickly and with a familiar UX, and the existing projects made it come to fruition sooner than expected.
