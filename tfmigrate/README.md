@@ -8,7 +8,7 @@
 
 ## Limitations
 
-- Migrating `dynamic` arguments. This is done as a _best-effort_ attempt.
+- Migrating `dynamic` arguments. This is done as a _best-effort_ attempt. Current _best_effort_ support available is for the `cors_rule`, `logging`, and `website` arguments.
 - Migrating `aws_s3_bucket` `routing_rules` (String) to `aws_s3_bucket_website_configuration` `routing_rule` configuration blocks
 if the given literal value is not a JSON or YAML representation of RoutingRules. 
 
