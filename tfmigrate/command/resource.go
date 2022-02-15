@@ -79,7 +79,6 @@ Options:
   -c  --csv    			   Generate a CSV file of new resources and their parent resource (default: false)           
   -p  --provider-version   The provider version constraint (default: v4.0.0)
   -r  --recursive          Check a directory recursively (default: false)
-
 `
 	return strings.TrimSpace(helpText)
 }
