@@ -232,13 +232,21 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 						continue
 					}
 
-					// Set block with additional for_each data
-					if forEachAttr != nil {
-						b.Body().SetAttributeRaw("for_each", forEachAttr.Expr().BuildTokens(nil))
-					}
-
 					switch argument {
+					case CorsRule:
+						// There can be many defined so we can maintain the dynamic block?
+						corsRules = append(corsRules, subBlock)
+					case Logging:
+						// Set block with additional for_each data
+						if forEachAttr != nil {
+							b.Body().SetAttributeRaw("for_each", forEachAttr.Expr().BuildTokens(nil))
+						}
+						logging = b
 					case Website:
+						// Set block with additional for_each data
+						if forEachAttr != nil {
+							b.Body().SetAttributeRaw("for_each", forEachAttr.Expr().BuildTokens(nil))
+						}
 						website = b
 					}
 				}
@@ -252,6 +260,32 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 			newlabels := []string{ResourceTypeAwsS3BucketCorsConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], CorsConfiguration)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
+			for _, crBlock := range corsRules {
+				if crBlock.Type() == "dynamic" {
+					if forEach := crBlock.Body().GetAttribute("for_each"); forEach != nil {
+						newBlock.Body().AppendUnstructuredTokens(hclwrite.Tokens{
+							{
+								Type:  hclsyntax.TokenComment,
+								Bytes: []byte("# TODO: Replace with your intended 'for_each' value\n"),
+							},
+						})
+						newBlock.Body().SetAttributeRaw("# for_each ", forEach.Expr().BuildTokens(nil))
+					}
+				}
+			}
+
+			if countAttr != nil || forEachAttr != nil {
+				newBlock.Body().AppendUnstructuredTokens(hclwrite.Tokens{
+					{
+						Type: hclsyntax.TokenComment,
+						Bytes: []byte(fmt.Sprintf(`
+# TODO: Replace 'bucket' argument value with correct instance index
+# e.g. aws_s3_bucket.%s[count.index].id
+`, labels[1])),
+					},
+				})
+			}
+
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
 				hcl.TraverseRoot{
 					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
@@ -259,6 +293,20 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 			})
 
 			for _, b := range corsRules {
+				if b.Type() == "dynamic" {
+					// Update content to use "each.value"
+					for _, bb := range b.Body().Blocks() {
+						if bb.Type() == "content" {
+							for k, v := range bb.Body().Attributes() {
+								bb.Body().SetAttributeTraversal(k, hcl.Traversal{
+									hcl.TraverseRoot{
+										Name: strings.Replace(string(v.Expr().BuildTokens(nil).Bytes()), "cors_rule.value", "each.value", 1),
+									},
+								})
+							}
+						}
+					}
+				}
 				newBlock.Body().AppendBlock(b)
 			}
 
@@ -424,15 +472,39 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 			newlabels := []string{ResourceTypeAwsS3BucketLogging.String(), fmt.Sprintf("%s_%s", labels[1], Logging)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
+			// Account for dynamic blocks of this argument
+			var hasForEach bool
+			loggingForEachAttribute := logging.Body().GetAttribute("for_each")
+			if loggingForEachAttribute != nil {
+				hasForEach = true
+				newBlock.Body().SetAttributeRaw("for_each", loggingForEachAttribute.Expr().BuildTokens(nil))
+				newBlock.Body().AppendNewline()
+			}
+
+			bucketAttribute := fmt.Sprintf("%s.%s.id", labels[0], labels[1])
+
+			if (countAttr != nil || forEachAttr != nil) && hasForEach {
+				bucketAttribute = fmt.Sprintf("%s.%s[each.key].id", labels[0], labels[1])
+			}
+
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
 				hcl.TraverseRoot{
-					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+					Name: bucketAttribute,
 				},
 			})
 
 			for k, v := range logging.Body().Attributes() {
 				// Expected: target_bucket, target_prefix
-				newBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+				if hasForEach {
+					val := strings.Replace(string(v.Expr().BuildTokens(nil).Bytes()), "logging.value", "each.value", 1)
+					newBlock.Body().SetAttributeTraversal(k, hcl.Traversal{
+						hcl.TraverseRoot{
+							Name: val,
+						},
+					})
+				} else {
+					newBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
+				}
 			}
 
 			log.Printf("	  ✓ Created %s.%s", ResourceTypeAwsS3BucketLogging, newlabels[1])
