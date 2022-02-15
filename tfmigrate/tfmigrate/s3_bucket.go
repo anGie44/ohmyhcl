@@ -3,18 +3,16 @@ package tfmigrate
 import (
 	"encoding/json"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"log"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/zclconf/go-cty/cty"
-)
-
-const (
-	ResourceTypeAwsS3Bucket = "aws_s3_bucket"
 )
 
 type ProviderAwsS3BucketMigrator struct {
@@ -101,7 +99,11 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 		}
 
 		bucketPath := strings.Join(labels, ".")
-		log.Printf("[INFO] Migrating %s \n", bucketPath)
+		log.Printf("[INFO] Found %s\n", bucketPath)
+
+		// Special Attribute Handling i.e. for_each and count
+		countAttr := block.Body().GetAttribute("count")
+		forEachAttr := block.Body().GetAttribute("for_each")
 
 		/////////////////////////////////////////// Attribute Handling /////////////////////////////////////////////////
 		// 1. acceleration_status
@@ -116,11 +118,11 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				continue
 			}
 			switch k {
-			case "acceleration_status":
+			case AccelerationStatus:
 				block.Body().RemoveAttribute(k)
 				f.Body().AppendNewline()
 
-				newlabels := []string{"aws_s3_bucket_accelerate_configuration", fmt.Sprintf("%s_acceleration_configuration", labels[1])}
+				newlabels := []string{ResourceMap[k], fmt.Sprintf("%s_%s", labels[1], AccelerateConfiguration)}
 				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -131,13 +133,13 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 
 				newBlock.Body().SetAttributeRaw("status", v.Expr().BuildTokens(nil))
 
-				log.Printf("	  ✓ Created aws_s3_bucket_accelerate_configuration.%s", newlabels[1])
-				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_accelerate_configuration.%s,%s", newlabels[1], bucketPath))
-			case "acl":
+				log.Printf("	  ✓ Created %s.%s", ResourceMap[k], newlabels[1])
+				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceMap[k], newlabels[1], bucketPath))
+			case Acl, Policy:
 				block.Body().RemoveAttribute(k)
 				f.Body().AppendNewline()
 
-				newlabels := []string{"aws_s3_bucket_acl", fmt.Sprintf("%s_acl", labels[1])}
+				newlabels := []string{ResourceMap[k], fmt.Sprintf("%s_%s", labels[1], k)}
 				aclResourceBlock = f.Body().AppendNewBlock(block.Type(), newlabels)
 
 				aclResourceBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -146,32 +148,15 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 					},
 				})
 
-				aclResourceBlock.Body().SetAttributeRaw("acl", v.Expr().BuildTokens(nil))
+				aclResourceBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
 
-				log.Printf("	  ✓ Created aws_s3_bucket_acl.%s", newlabels[1])
-				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
-			case "policy":
+				log.Printf("	  ✓ Created %s.%s", ResourceMap[k], newlabels[1])
+				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceMap[k], newlabels[1], bucketPath))
+			case RequestPayer:
 				block.Body().RemoveAttribute(k)
 				f.Body().AppendNewline()
 
-				newlabels := []string{"aws_s3_bucket_policy", fmt.Sprintf("%s_policy", labels[1])}
-				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
-
-				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
-					hcl.TraverseRoot{
-						Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
-					},
-				})
-
-				newBlock.Body().SetAttributeRaw("policy", v.Expr().BuildTokens(nil))
-
-				log.Printf("	  ✓ Created aws_s3_bucket_policy.%s", newlabels[1])
-				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_policy.%s,%s", newlabels[1], bucketPath))
-			case "request_payer":
-				block.Body().RemoveAttribute(k)
-				f.Body().AppendNewline()
-
-				newlabels := []string{"aws_s3_bucket_request_payment_configuration", fmt.Sprintf("%s_request_payment_configuration", labels[1])}
+				newlabels := []string{ResourceMap[k], fmt.Sprintf("%s_%s", labels[1], RequestPaymentConfiguration)}
 				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -182,8 +167,8 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 
 				newBlock.Body().SetAttributeRaw("payer", v.Expr().BuildTokens(nil))
 
-				log.Printf("	  ✓ Created aws_s3_bucket_request_payment_configuration.%s", newlabels[1])
-				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_request_payment_configuration.%s,%s", newlabels[1], bucketPath))
+				log.Printf("	  ✓ Created %s.%s", ResourceMap[k], newlabels[1])
+				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceMap[k], newlabels[1], bucketPath))
 			}
 		}
 
@@ -216,24 +201,47 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 			block.Body().RemoveBlock(subBlock)
 
 			switch t := subBlock.Type(); t {
-			case "cors_rule":
+			case CorsRule:
 				corsRules = append(corsRules, subBlock)
-			case "grant":
+			case Grant:
 				grants = append(grants, subBlock)
-			case "lifecycle_rule":
+			case LifecycleRule:
 				lifecycleRules = append(lifecycleRules, subBlock)
-			case "logging":
+			case Logging:
 				logging = subBlock
-			case "object_lock_configuration":
+			case ObjectLockConfiguration:
 				objectLockConfig = subBlock
-			case "replication_configuration":
+			case ReplicationConfiguration:
 				replicationConfig = subBlock
-			case "server_side_encryption_configuration":
+			case ServerSideEncryptionConfiguration:
 				serverSideEncryptionConfig = subBlock
-			case "versioning":
+			case Versioning:
 				versioning = subBlock
-			case "website":
+			case Website:
 				website = subBlock
+			case "dynamic":
+				// TODO: Account for "dynamic" blocks ... yikes ...
+				// Maybe we can recreate them ??
+				argument := subBlock.Labels()[0] // e.g. "website"
+
+				forEachAttr := subBlock.Body().GetAttribute("for_each")
+
+				for _, b := range subBlock.Body().Blocks() {
+					// Expected: content
+					if b.Type() != "content" {
+						continue
+					}
+
+					// Set block with additional for_each data
+					if forEachAttr != nil {
+						b.Body().SetAttributeRaw("for_each", forEachAttr.Expr().BuildTokens(nil))
+					}
+
+					switch argument {
+					case Website:
+						website = b
+					}
+				}
 			}
 		}
 
@@ -241,7 +249,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 			// Create new Cors resource
 			f.Body().AppendNewline()
 
-			newlabels := []string{"aws_s3_bucket_cors_configuration", fmt.Sprintf("%s_cors_configuration", labels[1])}
+			newlabels := []string{ResourceTypeAwsS3BucketCorsConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], CorsConfiguration)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -254,8 +262,8 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				newBlock.Body().AppendBlock(b)
 			}
 
-			log.Printf("	  ✓ Created aws_s3_bucket_cors_configuration.%s", newlabels[1])
-			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_cors_configuration.%s,%s", newlabels[1], bucketPath))
+			log.Printf("	  ✓ Created %s.%s", ResourceTypeAwsS3BucketCorsConfiguration, newlabels[1])
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceTypeAwsS3BucketCorsConfiguration, newlabels[1], bucketPath))
 		}
 
 		if len(grants) > 0 {
@@ -263,7 +271,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				// Create new aws_s3_bucket_acl resource
 				f.Body().AppendNewline()
 
-				newlabels := []string{"aws_s3_bucket_acl", fmt.Sprintf("%s_acl", labels[1])}
+				newlabels := []string{ResourceTypeAwsS3BucketAcl.String(), fmt.Sprintf("%s_%s", labels[1], Acl)}
 				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -317,15 +325,15 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 					}
 				}
 
-				log.Printf("	  ✓ Created aws_s3_bucket_acl.%s", newlabels[1])
-				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_acl.%s,%s", newlabels[1], bucketPath))
+				log.Printf("	  ✓ Created %s.%s", ResourceTypeAwsS3BucketAcl, newlabels[1])
+				m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceTypeAwsS3BucketAcl, newlabels[1], bucketPath))
 			} // TODO: Account for case where "acl" and "grant" are configured
 		}
 
 		if len(lifecycleRules) > 0 {
 			f.Body().AppendNewline()
 
-			newlabels := []string{"aws_s3_bucket_lifecycle_configuration", fmt.Sprintf("%s_lifecycle_configuration", labels[1])}
+			newlabels := []string{ResourceTypeAwsS3BucketLifecycleConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], LifecycleConfiguration)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -406,14 +414,14 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				}
 			}
 
-			log.Printf("	  ✓ Created aws_s3_bucket_lifecycle_configuration.%s", newlabels[1])
-			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_lifecycle_configuration.%s,%s", newlabels[1], bucketPath))
+			log.Printf("	  ✓ Created %s.%s", ResourceTypeAwsS3BucketLifecycleConfiguration, newlabels[1])
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceTypeAwsS3BucketLifecycleConfiguration, newlabels[1], bucketPath))
 		}
 
 		if logging != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{"aws_s3_bucket_logging", fmt.Sprintf("%s_logging", labels[1])}
+			newlabels := []string{ResourceTypeAwsS3BucketLogging.String(), fmt.Sprintf("%s_%s", labels[1], Logging)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -427,14 +435,14 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				newBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
 			}
 
-			log.Printf("	  ✓ Created aws_s3_bucket_logging.%s", newlabels[1])
-			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_logging.%s,%s", newlabels[1], bucketPath))
+			log.Printf("	  ✓ Created %s.%s", ResourceTypeAwsS3BucketLogging, newlabels[1])
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceTypeAwsS3BucketLogging, newlabels[1], bucketPath))
 		}
 
 		if versioning != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{"aws_s3_bucket_versioning", fmt.Sprintf("%s_versioning", labels[1])}
+			newlabels := []string{ResourceTypeAwsS3BucketVersioning.String(), fmt.Sprintf("%s_%s", labels[1], Versioning)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -461,14 +469,14 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				}
 			}
 
-			log.Printf("	  ✓ Created aws_s3_bucket_versioning.%s", newlabels[1])
-			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_versioning.%s,%s", newlabels[1], bucketPath))
+			log.Printf("	  ✓ Created %s.%s", newlabels[1], ResourceTypeAwsS3BucketVersioning)
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceTypeAwsS3BucketVersioning, newlabels[1], bucketPath))
 		}
 
 		if objectLockConfig != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{"aws_s3_bucket_object_lock_configuration", fmt.Sprintf("%s_object_lock_configuration", labels[1])}
+			newlabels := []string{ResourceTypeAwsS3BucketObjectLockConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], ObjectLockConfiguration)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -493,14 +501,14 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				newBlock.Body().AppendBlock(ob)
 			}
 
-			log.Printf("	  ✓ Created aws_s3_bucket_object_lock_configuration.%s", newlabels[1])
-			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_object_lock_configuration.%s,%s", newlabels[1], bucketPath))
+			log.Printf("	  ✓ Created %s.%s", ResourceTypeAwsS3BucketObjectLockConfiguration, newlabels[1])
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceTypeAwsS3BucketObjectLockConfiguration, newlabels[1], bucketPath))
 		}
 
 		if replicationConfig != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{"aws_s3_bucket_replication_configuration", fmt.Sprintf("%s_replication_configuration", labels[1])}
+			newlabels := []string{ResourceTypeAwsS3BucketReplicationConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], ReplicationConfiguration)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -644,14 +652,14 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				}
 			}
 
-			log.Printf("	  ✓ Created aws_s3_bucket_replication_configuration.%s", newlabels[1])
-			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_replication_configuration.%s,%s", newlabels[1], bucketPath))
+			log.Printf("	  ✓ Created %s.%s", ResourceTypeAwsS3BucketReplicationConfiguration, newlabels[1])
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceTypeAwsS3BucketReplicationConfiguration, newlabels[1], bucketPath))
 		}
 
 		if serverSideEncryptionConfig != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{"aws_s3_bucket_server_side_encryption_configuration", fmt.Sprintf("%s_server_side_encryption_configuration", labels[1])}
+			newlabels := []string{ResourceTypeAwsS3BucketServerSideEncryptionConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], ServerSideEncryptionConfiguration)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -668,19 +676,34 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				newBlock.Body().AppendBlock(b)
 			}
 
-			log.Printf("	  ✓ Created aws_s3_bucket_server_side_encryption_configuration.%s", newlabels[1])
-			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_server_side_encryption_configuration.%s,%s", newlabels[1], bucketPath))
+			log.Printf("	  ✓ Created %s.%s", ResourceTypeAwsS3BucketServerSideEncryptionConfiguration, newlabels[1])
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceTypeAwsS3BucketServerSideEncryptionConfiguration, newlabels[1], bucketPath))
 		}
 
 		if website != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{"aws_s3_bucket_website_configuration", fmt.Sprintf("%s_website_configuration", labels[1])}
+			newlabels := []string{ResourceTypeAwsS3BucketWebsiteConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], WebsiteConfiguration)}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
+
+			// Account for dynamic blocks of this argument
+			var hasForEach bool
+			websiteForEachAttribute := website.Body().GetAttribute("for_each")
+			if websiteForEachAttribute != nil {
+				hasForEach = true
+				newBlock.Body().SetAttributeRaw("for_each", websiteForEachAttribute.Expr().BuildTokens(nil))
+				newBlock.Body().AppendNewline()
+			}
+
+			bucketAttribute := fmt.Sprintf("%s.%s.id", labels[0], labels[1])
+
+			if (countAttr != nil || forEachAttr != nil) && hasForEach {
+				bucketAttribute = fmt.Sprintf("%s.%s[each.key].id", labels[0], labels[1])
+			}
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
 				hcl.TraverseRoot{
-					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
+					Name: bucketAttribute,
 				},
 			})
 
@@ -688,24 +711,124 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				switch k {
 				case "index_document":
 					indexDocBlock := newBlock.Body().AppendNewBlock("index_document", nil)
-					indexDocBlock.Body().SetAttributeRaw("suffix", v.Expr().BuildTokens(nil))
-				case "error_document":
-					errDocBlock := newBlock.Body().AppendNewBlock("error_document", nil)
-					errDocBlock.Body().SetAttributeRaw("key", v.Expr().BuildTokens(nil))
-				case "redirect_all_requests_to":
-					redirectBlock := newBlock.Body().AppendNewBlock("redirect_all_requests_to", nil)
-					redirectBlock.Body().SetAttributeRaw("host_name", v.Expr().BuildTokens(nil))
-				case "routing_rules":
-					var unmarshaledRules []*s3.RoutingRule
 
-					routingRulesStr := strings.TrimPrefix(strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes())), "<<EOF")
-					routingRulesStr = strings.TrimSuffix(routingRulesStr, "EOF")
-
-					if err := json.Unmarshal([]byte(routingRulesStr), &unmarshaledRules); err != nil {
-						log.Printf("[WARN] Unable to set 'routing_rule' in aws_s3_bucket_website_configuration.%s: %s", labels[1], err)
+					if hasForEach {
+						// Is it safe to assume this value will always be <argument_name>.value ?
+						val := strings.Replace(string(v.Expr().BuildTokens(nil).Bytes()), "website.value", "each.value", 1)
+						indexDocBlock.Body().SetAttributeTraversal("suffix", hcl.Traversal{
+							hcl.TraverseRoot{
+								Name: val,
+							},
+						})
+					} else {
+						indexDocBlock.Body().SetAttributeRaw("suffix", v.Expr().BuildTokens(nil))
 					}
 
-					for _, rule := range unmarshaledRules {
+				case "error_document":
+					errDocBlock := newBlock.Body().AppendNewBlock("error_document", nil)
+
+					if hasForEach {
+						val := strings.Replace(string(v.Expr().BuildTokens(nil).Bytes()), "website.value", "each.value", 1)
+						errDocBlock.Body().SetAttributeTraversal("key", hcl.Traversal{
+							hcl.TraverseRoot{
+								Name: val,
+							},
+						})
+					} else {
+						errDocBlock.Body().SetAttributeRaw("key", v.Expr().BuildTokens(nil))
+					}
+				case "redirect_all_requests_to":
+					redirectBlock := newBlock.Body().AppendNewBlock("redirect_all_requests_to", nil)
+
+					if hasForEach {
+						val := strings.Replace(string(v.Expr().BuildTokens(nil).Bytes()), "website.value", "each.value", 1)
+						redirectBlock.Body().SetAttributeTraversal("host_name", hcl.Traversal{
+							hcl.TraverseRoot{
+								Name: val,
+							},
+						})
+					} else {
+						redirectBlock.Body().SetAttributeRaw("host_name", v.Expr().BuildTokens(nil))
+					}
+				case "routing_rules":
+					var unmarshalledRules []*s3.RoutingRule    // if we can parse string as JSON
+					var customUnmarshalledRules []*RoutingRule // if we can't parse string as JSON, try as YAML (e.g. when jsonencode func is used in terraform)
+
+					routingRulesStr := strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes()))
+					indexOfOpenBracket := strings.Index(routingRulesStr, "[")
+					indexOfCloseBracket := strings.LastIndex(routingRulesStr, "]")
+
+					if indexOfOpenBracket == -1 || indexOfCloseBracket == -1 {
+						log.Printf("[WARN] Unable to set 'routing_rule' in %s.%s.%s as configuration blocks from value", ResourceTypeAwsS3BucketWebsiteConfiguration, labels[1], WebsiteConfiguration)
+						newBlock.Body().AppendUnstructuredTokens(hclwrite.Tokens{
+							{
+								Type:  hclsyntax.TokenComment,
+								Bytes: []byte("# TODO: Replace with your 'routing_rule' configuration\n"),
+							},
+						})
+						continue
+					}
+
+					routingRulesStr = routingRulesStr[indexOfOpenBracket : indexOfCloseBracket+1]
+
+					if err := json.Unmarshal([]byte(routingRulesStr), &unmarshalledRules); err != nil {
+						log.Printf("[DEBUG] Unable to json unmarshal 'routing_rule' in %s.%s_%s: %s. Trying yaml unmarshal...", ResourceTypeAwsS3BucketWebsiteConfiguration, labels[1], WebsiteConfiguration, err)
+						if yamlErr := yaml.Unmarshal([]byte(routingRulesStr), &customUnmarshalledRules); yamlErr != nil {
+							log.Printf("[DEBUG] Unable to yaml unmarshal 'routing_rule' in %s.%s_%s: %s", ResourceTypeAwsS3BucketWebsiteConfiguration, labels[1], WebsiteConfiguration, yamlErr)
+						}
+					}
+
+					if len(unmarshalledRules) == 0 && len(customUnmarshalledRules) == 0 {
+						log.Printf("[WARN] Unable to set 'routing_rule' in %s.%s_%s: no routing rules parsed", ResourceTypeAwsS3BucketWebsiteConfiguration, labels[1], WebsiteConfiguration)
+						newBlock.Body().AppendUnstructuredTokens(hclwrite.Tokens{
+							{
+								Type:  hclsyntax.TokenComment,
+								Bytes: []byte("# TODO: Replace with your 'routing_rule' configuration\n"),
+							},
+						})
+						continue
+					}
+
+					for _, rule := range customUnmarshalledRules {
+						routingRuleBlock := newBlock.Body().AppendNewBlock("routing_rule", nil)
+						if c := rule.Condition; c != nil {
+							conditionBlock := routingRuleBlock.Body().AppendNewBlock("condition", nil)
+							if c.HttpErrorCodeReturnedEquals != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(c.HttpErrorCodeReturnedEquals)))
+								conditionBlock.Body().SetAttributeRaw("http_error_code_returned_equals", expr.BuildTokens(nil))
+							}
+							if c.KeyPrefixEquals != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(c.KeyPrefixEquals)))
+								conditionBlock.Body().SetAttributeRaw("key_prefix_equals", expr.BuildTokens(nil))
+							}
+						}
+
+						if r := rule.Redirect; r != nil {
+							redirectBlock := routingRuleBlock.Body().AppendNewBlock("redirect", nil)
+							if r.HostName != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.HostName)))
+								redirectBlock.Body().SetAttributeRaw("host_name", expr.BuildTokens(nil))
+							}
+							if r.HttpRedirectCode != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.HttpRedirectCode)))
+								redirectBlock.Body().SetAttributeRaw("http_redirect_code", expr.BuildTokens(nil))
+							}
+							if r.Protocol != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.Protocol)))
+								redirectBlock.Body().SetAttributeRaw("protocol", expr.BuildTokens(nil))
+							}
+							if r.ReplaceKeyPrefixWith != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.ReplaceKeyPrefixWith)))
+								redirectBlock.Body().SetAttributeRaw("replace_key_prefix_with", expr.BuildTokens(nil))
+							}
+							if r.ReplaceKeyWith != nil {
+								expr := hclwrite.NewExpressionLiteral(cty.StringVal(aws.StringValue(r.ReplaceKeyWith)))
+								redirectBlock.Body().SetAttributeRaw("replace_key_with", expr.BuildTokens(nil))
+							}
+						}
+					}
+
+					for _, rule := range unmarshalledRules {
 						routingRuleBlock := newBlock.Body().AppendNewBlock("routing_rule", nil)
 						if c := rule.Condition; c != nil {
 							conditionBlock := routingRuleBlock.Body().AppendNewBlock("condition", nil)
@@ -746,8 +869,8 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				}
 			}
 
-			log.Printf("	  ✓ Created aws_s3_bucket_website_configuration.%s", newlabels[1])
-			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("aws_s3_bucket_website_configuration.%s,%s", newlabels[1], bucketPath))
+			log.Printf("	  ✓ Created %s.%s", ResourceTypeAwsS3BucketWebsiteConfiguration, newlabels[1])
+			m.newResourceNames = append(m.newResourceNames, fmt.Sprintf("%s.%s,%s", ResourceTypeAwsS3BucketWebsiteConfiguration, newlabels[1], bucketPath))
 		}
 	}
 

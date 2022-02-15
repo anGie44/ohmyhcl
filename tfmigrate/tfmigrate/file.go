@@ -15,13 +15,14 @@ import (
 // Note: This file and its methods are taken from https://github.com/minamijoyo/tfupdate/blob/master/tfupdate/file.go
 // with the exception that they are renamed with the "Migrate" prefix
 
-// MigrateFile migrates resources in a single file.
+// MigrateFile migrates resources in a new single file.
+// Optionally will generate a resulting CSV with the new resources and their parent.
 // We use an afero filesystem here for testing.
 func MigrateFile(fs afero.Fs, filename string, o Option) error {
 	log.Printf("[DEBUG] check file: %s", filename)
 	r, err := fs.Open(filename)
 	if err != nil {
-		return fmt.Errorf("failed to open file: %s", err)
+		return fmt.Errorf("[ERROR] failed to open file: %s", err)
 	}
 	defer r.Close()
 
@@ -32,23 +33,29 @@ func MigrateFile(fs afero.Fs, filename string, o Option) error {
 	}
 
 	// Write contents to destination file if migrations occurred.
-	if len(newResourceNames) > 0 {
-		outputFilename := strings.Replace(filename, ".tf", "_migrated.tf", 1)
-		log.Printf("[INFO] migrated file: %s", outputFilename)
-		migrated := w.Bytes()
-		// We should be able to choose whether to format output or not.
-		// However, the current implementation of (*hclwrite.Body).SetAttributeValue()
-		// does not seem to preserve an original SpaceBefore value of attribute.
-		// So, we need to format output here.
-		result := hclwrite.Format(migrated)
-		if err = afero.WriteFile(fs, outputFilename, result, os.ModePerm); err != nil {
-			return fmt.Errorf("failed to write file: %s", err)
-		}
+	if len(newResourceNames) == 0 {
+		log.Printf("[DEBUG] no migration file to create for %s", filename)
+		return nil
+	}
 
-		// Write migrations to csv file
+	outputFilename := strings.Replace(filename, ".tf", "_migrated.tf", 1)
+	log.Printf("[INFO] new file: %s", outputFilename)
+	migrated := w.Bytes()
+	// We should be able to choose whether to format output or not.
+	// However, the current implementation of (*hclwrite.Body).SetAttributeValue()
+	// does not seem to preserve an original SpaceBefore value of attribute.
+	// So, we need to format output here.
+	result := hclwrite.Format(migrated)
+	if err = afero.WriteFile(fs, outputFilename, result, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to write file: %s", err)
+	}
+
+	// Write migrations to csv file
+	if o.Csv {
 		newFile, err := os.Create(strings.Replace(filename, ".tf", "_new_resources.csv", 1))
+		log.Printf("[INFO] new file: %s", newFile.Name())
 		if err != nil {
-			return fmt.Errorf("error creating (%s): %s", newFile.Name(), err)
+			return fmt.Errorf("[ERROR] error creating (%s): %s", newFile.Name(), err)
 		}
 
 		defer newFile.Close()

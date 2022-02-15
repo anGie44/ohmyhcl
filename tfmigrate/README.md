@@ -6,6 +6,50 @@
 - Update version constraints of the Terraform AWS Provider defined in configurations.
 - Get a table (in `.csv` format) of each new resource with its parent `aws_s3_bucket` to enable resource import.
 
+## Limitations
+
+- Migrating `dynamic` arguments. This is done as a _best-effort_ attempt.
+- Migrating `aws_s3_bucket` `routing_rules` (String) to `aws_s3_bucket_website_configuration` `routing_rule` configuration blocks
+if the given literal value is not a JSON or YAML representation of RoutingRules. 
+
+For example, given the following configuration:
+```shell
+$ cat main.tf
+
+resource "aws_s3_bucket" "example" {
+  # ... other configuration ...
+  dynamic "website" {
+    for_each = length(keys(var.website)) == 0 ? [] : [var.website]
+
+    content {
+      index_document           = lookup(website.value, "index_document", null)
+      error_document           = lookup(website.value, "error_document", null)
+      redirect_all_requests_to = lookup(website.value, "redirect_all_requests_to", null)
+      routing_rules            = lookup(website.value, "routing_rules", null)
+    }
+  }
+}
+```
+
+The `aws_s3_bucket_website_configuration` resource in `main_migrated.tf` will look like:
+```terraform
+resource "aws_s3_bucket_website_configuration" "this_website_configuration" {
+  for_each = length(keys(var.website)) == 0 ? [] : [var.website]
+
+  bucket = aws_s3_bucket.this[each.key].id
+  # TODO: Replace with your 'routing_rule' configuration
+  index_document {
+    suffix = lookup(each.value, "index_document", null)
+  }
+  error_document {
+    key = lookup(each.value, "error_document", null)
+  }
+  redirect_all_requests_to {
+    host_name = lookup(each.value, "redirect_all_requests_to", null)
+  }
+}
+```
+
 ### Source
 
 If you have Go 1.17+ development environment:
@@ -40,6 +84,7 @@ Options:
                          Set the flag with values separated by commas (e.g. --ignore-names="example,log_bucket") or set the flag multiple times.
   -i  --ignore-paths     Regular expressions for path to ignore
                          Set the flag with values separated by commas or set the flag multiple times.
+  -c  --csv              Generate a CSV file of new resources and their parent resource (default: false)           
   -p  --provider-version The provider version constraint (default: v4.0.0)
   -r  --recursive        Check a directory recursively (default: false)
 ```

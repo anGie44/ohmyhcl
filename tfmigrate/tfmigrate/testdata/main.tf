@@ -253,17 +253,13 @@ resource "aws_s3_bucket" "example" {
   website {
     index_document = "index.html"
     error_document = "error.html"
-    routing_rules  = <<EOF
-  [
-    {
-      "Condition": {
-        "KeyPrefixEquals": "docs/"
+    routing_rules = jsonencode([{
+      Condition : {
+        KeyPrefixEquals : "docs/"
       },
-      "Redirect": {
-        "ReplaceKeyPrefixWith": "documents/"
+      Redirect : {
+        ReplaceKeyPrefixWith : "documents/"
       }
-    }
-  ]
-  EOF
+    }])
   }
 }

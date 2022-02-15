@@ -88,6 +88,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "log_bucket_server
   }
 }
 
+resource "aws_s3_bucket_accelerate_configuration" "example_accelerate_configuration" {
+  bucket = aws_s3_bucket.example.id
+  status = "Enabled"
+}
+
 resource "aws_s3_bucket_policy" "example_policy" {
   bucket = aws_s3_bucket.example.id
   policy = <<POLICY
@@ -113,11 +118,6 @@ resource "aws_s3_bucket_request_payment_configuration" "example_request_payment_
   payer  = "Requester"
 }
 
-resource "aws_s3_bucket_accelerate_configuration" "example_acceleration_configuration" {
-  bucket = aws_s3_bucket.example.id
-  status = "Enabled"
-}
-
 resource "aws_s3_bucket_cors_configuration" "example_cors_configuration" {
   bucket = aws_s3_bucket.example.id
   cors_rule {
@@ -136,33 +136,6 @@ resource "aws_s3_bucket_cors_configuration" "example_cors_configuration" {
   }
 }
 
-resource "aws_s3_bucket_acl" "example_acl" {
-  bucket = aws_s3_bucket.example.id
-  access_control_policy {
-    grant {
-      grantee {
-        id   = data.aws_canonical_user_id.current.id
-        type = "CanonicalUser"
-      }
-      permission = "WRITE"
-    }
-    grant {
-      grantee {
-        type = "CanonicalUser"
-        id   = data.aws_canonical_user_id.current.id
-      }
-      permission = "FULL_CONTROL"
-    }
-    grant {
-      grantee {
-        type = "Group"
-        uri  = "http://acs.amazonaws.com/groups/s3/LogDelivery"
-      }
-      permission = "READ_ACP"
-    }
-  }
-}
-
 resource "aws_s3_bucket_lifecycle_configuration" "example_lifecycle_configuration" {
   bucket = aws_s3_bucket.example.id
   rule {
@@ -176,8 +149,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "example_lifecycle_configuratio
     }
   }
   rule {
-    status = "Enabled"
     id     = "id5"
+    status = "Enabled"
     filter {
       and {
         tags = {
@@ -219,22 +192,22 @@ resource "aws_s3_bucket_lifecycle_configuration" "example_lifecycle_configuratio
     }
   }
   rule {
-    id     = "id3"
     status = "Enabled"
+    id     = "id3"
     filter {
       prefix = "path3/"
     }
     noncurrent_version_transition {
-      storage_class  = "GLACIER"
       noncurent_days = 0
+      storage_class  = "GLACIER"
     }
   }
 }
 
 resource "aws_s3_bucket_logging" "example_logging" {
   bucket        = aws_s3_bucket.example.id
-  target_prefix = "log/"
   target_bucket = aws_s3_bucket.log_bucket.id
+  target_prefix = "log/"
 }
 
 resource "aws_s3_bucket_versioning" "example_versioning" {
@@ -259,12 +232,12 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
   bucket = aws_s3_bucket.example.id
   role   = aws_iam_role.role.arn
   rule {
-    delete_marker_replication {
-      status = "Enabled"
-    }
     id       = "rule1"
     priority = 1
     status   = "Enabled"
+    delete_marker_replication {
+      status = "Enabled"
+    }
     filter {
       prefix = "prefix1"
     }
@@ -290,9 +263,9 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
     }
   }
   rule {
-    status   = "Enabled"
     id       = "rule2"
     priority = 2
+    status   = "Enabled"
     filter {
       and {
         tags = {
@@ -302,19 +275,19 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
       }
     }
     destination {
-      bucket        = aws_s3_bucket.destination2.arn
       storage_class = "STANDARD_IA"
+      bucket        = aws_s3_bucket.destination2.arn
       metrics {
+        status = "Enabled"
         event_threshold {
           minutes = 15
         }
-        status = "Enabled"
       }
       replication_time {
-        status = "Enabled"
         time {
           minutes = 15
         }
+        status = "Enabled"
       }
     }
   }
@@ -333,12 +306,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "example_server_si
 
 resource "aws_s3_bucket_website_configuration" "example_website_configuration" {
   bucket = aws_s3_bucket.example.id
-  index_document {
-    suffix = "index.html"
-  }
-  error_document {
-    key = "error.html"
-  }
   routing_rule {
     condition {
       key_prefix_equals = "docs/"
@@ -346,5 +313,11 @@ resource "aws_s3_bucket_website_configuration" "example_website_configuration" {
     redirect {
       replace_key_prefix_with = "documents/"
     }
+  }
+  index_document {
+    suffix = "index.html"
+  }
+  error_document {
+    key = "error.html"
   }
 }

@@ -15,6 +15,9 @@ type Option struct {
 	// a new provider version constraint
 	ProviderVersion string
 
+	// If a csv flag is true, generates additional CSV file of new resources and their parent S3 bucket
+	Csv bool
+
 	// If a recursive flag is true, it checks and updates directories recursively.
 	Recursive bool
 
@@ -29,7 +32,7 @@ type Option struct {
 }
 
 // NewOption returns an option.
-func NewOption(migratorType, resourceType, providerVersion string, recursive bool, ignoreArguments, ignoreResourceNames, ignorePaths []string) (Option, error) {
+func NewOption(migratorType, resourceType, providerVersion string, csv, recursive bool, ignoreArguments, ignoreResourceNames, ignorePaths []string) (Option, error) {
 	regexps := make([]*regexp.Regexp, 0, len(ignorePaths))
 	for _, ignorePath := range ignorePaths {
 		if len(ignorePath) == 0 {
@@ -47,6 +50,7 @@ func NewOption(migratorType, resourceType, providerVersion string, recursive boo
 		MigratorType:        migratorType,
 		ResourceType:        resourceType,
 		ProviderVersion:     providerVersion,
+		Csv:                 csv,
 		Recursive:           recursive,
 		IgnoreArguments:     ignoreArguments,
 		IgnoreResourceNames: ignoreResourceNames,
