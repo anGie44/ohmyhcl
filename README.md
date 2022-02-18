@@ -1,5 +1,5 @@
 # ohmyhcl
-experimenting with hclwrite and tfupdate, inspired by hcledit
+A playground for experimenting with hclwrite and tfupdate, inspired by hcledit
 
 ## Description
 
