@@ -1,0 +1,1 @@
+aws_s3_bucket_lifecycle_configuration.example_lifecycle_configuration,aws_s3_bucket.example

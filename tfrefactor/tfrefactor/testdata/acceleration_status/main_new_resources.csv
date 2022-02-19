@@ -1,0 +1,1 @@
+aws_s3_bucket_accelerate_configuration.example_accelerate_configuration,aws_s3_bucket.example

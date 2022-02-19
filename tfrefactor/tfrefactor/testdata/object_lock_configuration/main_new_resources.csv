@@ -1,0 +1,1 @@
+aws_s3_bucket_object_lock_configuration.example_object_lock_configuration,aws_s3_bucket.example

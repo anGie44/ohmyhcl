@@ -88,9 +88,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "log_bucket_server
   }
 }
 
-resource "aws_s3_bucket_accelerate_configuration" "example_accelerate_configuration" {
+resource "aws_s3_bucket_request_payment_configuration" "example_request_payment_configuration" {
   bucket = aws_s3_bucket.example.id
-  status = "Enabled"
+  payer  = "Requester"
 }
 
 resource "aws_s3_bucket_policy" "example_policy" {
@@ -113,9 +113,9 @@ resource "aws_s3_bucket_policy" "example_policy" {
   POLICY
 }
 
-resource "aws_s3_bucket_request_payment_configuration" "example_request_payment_configuration" {
+resource "aws_s3_bucket_accelerate_configuration" "example_accelerate_configuration" {
   bucket = aws_s3_bucket.example.id
-  payer  = "Requester"
+  status = "Enabled"
 }
 
 resource "aws_s3_bucket_cors_configuration" "example_cors_configuration" {
@@ -192,8 +192,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "example_lifecycle_configuratio
     }
   }
   rule {
-    status = "Enabled"
     id     = "id3"
+    status = "Enabled"
     filter {
       prefix = "path3/"
     }
@@ -275,8 +275,8 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
       }
     }
     destination {
-      storage_class = "STANDARD_IA"
       bucket        = aws_s3_bucket.destination2.arn
+      storage_class = "STANDARD_IA"
       metrics {
         status = "Enabled"
         event_threshold {
@@ -284,10 +284,10 @@ resource "aws_s3_bucket_replication_configuration" "example_replication_configur
         }
       }
       replication_time {
+        status = "Enabled"
         time {
           minutes = 15
         }
-        status = "Enabled"
       }
     }
   }

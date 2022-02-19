@@ -1,0 +1,1 @@
+aws_s3_bucket_cors_configuration.example_cors_configuration,aws_s3_bucket.example

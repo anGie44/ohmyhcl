@@ -1,0 +1,1 @@
+aws_s3_bucket_website_configuration.example_website_configuration,aws_s3_bucket.example

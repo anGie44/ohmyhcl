@@ -39,15 +39,15 @@ resource "aws_s3_bucket" "c" {
   bucket_prefix = var.bucket_prefix
 
   dynamic "cors_rule" {
-      for_each = try(jsondecode(var.cors_rule), var.cors_rule)
+    for_each = try(jsondecode(var.cors_rule), var.cors_rule)
 
-      content {
-        allowed_methods = cors_rule.value.allowed_methods
-        allowed_origins = cors_rule.value.allowed_origins
-        allowed_headers = lookup(cors_rule.value, "allowed_headers", null)
-        expose_headers  = lookup(cors_rule.value, "expose_headers", null)
-        max_age_seconds = lookup(cors_rule.value, "max_age_seconds", null)
-      }
+    content {
+      allowed_methods = cors_rule.value.allowed_methods
+      allowed_origins = cors_rule.value.allowed_origins
+      allowed_headers = lookup(cors_rule.value, "allowed_headers", null)
+      expose_headers  = lookup(cors_rule.value, "expose_headers", null)
+      max_age_seconds = lookup(cors_rule.value, "max_age_seconds", null)
     }
+  }
 }
 

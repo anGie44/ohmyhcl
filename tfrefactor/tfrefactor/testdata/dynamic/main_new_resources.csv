@@ -1,0 +1,3 @@
+aws_s3_bucket_website_configuration.a_website_configuration,aws_s3_bucket.a
+aws_s3_bucket_logging.b_logging,aws_s3_bucket.b
+aws_s3_bucket_cors_configuration.c_cors_configuration,aws_s3_bucket.c

@@ -1,0 +1,1 @@
+aws_s3_bucket_replication_configuration.example_replication_configuration,aws_s3_bucket.example
