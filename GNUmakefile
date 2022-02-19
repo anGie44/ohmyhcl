@@ -1,5 +1,5 @@
-NAME := tfmigrate
-SRC_DIR := ./tfmigrate
+NAME := tfrefactor
+SRC_DIR := ./tfrefactor
 
 .DEFAULT_GOAL := build
 

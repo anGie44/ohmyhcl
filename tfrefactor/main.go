@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/anGie44/ohmyhcl/tfmigrate/command"
+	"github.com/anGie44/ohmyhcl/tfrefactor/command"
 	"github.com/hashicorp/logutils"
 	"github.com/mitchellh/cli"
 	"github.com/spf13/afero"
@@ -31,7 +31,7 @@ func main() {
 	args := os.Args[1:]
 
 	c := &cli.CLI{
-		Name:                  "tfmigrate",
+		Name:                  "tfrefactor",
 		Args:                  args,
 		Commands:              commands,
 		HelpWriter:            os.Stdout,
@@ -50,7 +50,7 @@ func main() {
 
 func logOutput() io.Writer {
 	levels := []logutils.LogLevel{"TRACE", "DEBUG", "INFO", "WARN", "ERROR"}
-	minLevel := os.Getenv("TFMIGRATE_LOG")
+	minLevel := os.Getenv("TFREFACTOR_LOG")
 
 	// default log writer is null device.
 	writer := ioutil.Discard

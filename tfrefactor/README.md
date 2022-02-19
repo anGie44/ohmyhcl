@@ -1,4 +1,4 @@
-# tfmigrate
+# tfrefactor
 
 ## Features
 
@@ -62,8 +62,8 @@ $ make install
 
 ## Usage
 ```shell
-tfmigrate --help
-Usage: tfmigrate [--version] [--help] <command> [<args>]
+tfrefactor --help
+Usage: tfrefactor [--version] [--help] <command> [<args>]
 
 Available commands are:
     resource    Migrate resource arguments to individual resources
@@ -72,8 +72,8 @@ Available commands are:
 ### resource
 
 ```shell
-$ tfmigrate resource --help
-Usage: tfmigrate resource <RESOURCE_TYPE> <PATH> [options]
+$ tfrefactor resource --help
+Usage: tfrefactor resource <RESOURCE_TYPE> <PATH> [options]
 Arguments
   RESOURCE_TYPE      The provider resource type (e.g. aws_s3_bucket)
   PATH               A path of file or directory to update
@@ -109,7 +109,7 @@ resource "aws_s3_bucket" "example" {
   }
 }
 
-$ tfmigrate resource aws_s3_bucket main.tf
+$ tfrefactor resource aws_s3_bucket main.tf
 
 $ cat main_migrated.tf
 provider "aws" {
@@ -138,10 +138,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "example_server_si
 
 ## Output Logging
 
-Set the environment variable `TFMIGRATE_LOG` to the log-level of choice. Valid values include: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`.
+Set the environment variable `TFREFACTOR_LOG` to the log-level of choice. Valid values include: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`.
 
 ## Credit
 
 Credit is due to [@minamijoyo](https://github.com/minamijoyo) (and community contributors) and their [`tfupdate`](https://github.com/minamijoyo/tfupdate) and [`hcledit`](https://github.com/minamijoyo/hcledit) projects,
-as `tfmigrate` is in essence an extension to that functionality and much of the foundation and CLI implementation of this tool takes from their existing code and patterns. 
+as `tfrefactor` is in essence an extension to that functionality and much of the foundation and CLI implementation of this tool takes from their existing code and patterns. 
 The goal of this project was to develop a tool, quickly and with a familiar UX, and the existing projects made it come to fruition sooner than expected.

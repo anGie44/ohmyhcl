@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/anGie44/ohmyhcl/tfmigrate/tfmigrate"
+	"github.com/anGie44/ohmyhcl/tfrefactor/tfrefactor"
 	flag "github.com/spf13/pflag"
 )
 
@@ -45,7 +45,7 @@ func (r *ResourceCommand) Run(args []string) int {
 	r.path = cmdFlags.Arg(1)
 
 	log.Printf("[INFO] Migrate resources of type %s to provider version %s", r.typ, r.providerVersion)
-	option, err := tfmigrate.NewOption("resource", r.typ, r.providerVersion, r.csv, r.recursive, r.ignoreArguments, r.ignoreResourceNames, r.ignorePaths)
+	option, err := tfrefactor.NewOption("resource", r.typ, r.providerVersion, r.csv, r.recursive, r.ignoreArguments, r.ignoreResourceNames, r.ignorePaths)
 	if err != nil {
 		r.UI.Error(err.Error())
 		return 1
@@ -53,7 +53,7 @@ func (r *ResourceCommand) Run(args []string) int {
 
 	log.Printf("[INFO] Migrating file or dir at path: %s", r.path)
 
-	err = tfmigrate.MigrateFileOrDir(r.Fs, r.path, option)
+	err = tfrefactor.MigrateFileOrDir(r.Fs, r.path, option)
 	if err != nil {
 		r.UI.Error(err.Error())
 		return 1
@@ -65,7 +65,7 @@ func (r *ResourceCommand) Run(args []string) int {
 // Help returns long-form help text.
 func (r *ResourceCommand) Help() string {
 	helpText := `
-Usage: tfmigrate resource <RESOURCE_TYPE> <PATH> [options]
+Usage: tfrefactor resource <RESOURCE_TYPE> <PATH> [options]
 Arguments
   RESOURCE_TYPE      The provider resource type (e.g. aws_s3_bucket)
   PATH               A path of file or directory to update
@@ -85,5 +85,5 @@ Options:
 
 // Synopsis returns one-line help text.
 func (r *ResourceCommand) Synopsis() string {
-	return "Migrate resource arguments to individual resources"
+	return "Refactor resource arguments to individual resources"
 }

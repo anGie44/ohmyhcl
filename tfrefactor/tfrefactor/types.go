@@ -1,4 +1,4 @@
-package tfmigrate
+package tfrefactor
 
 // Custom Routing Rule structs for parsing yaml-like strings
 

@@ -1,4 +1,4 @@
-module github.com/anGie44/ohmyhcl/tfmigrate
+module github.com/anGie44/ohmyhcl/tfrefactor
 
 go 1.17
 

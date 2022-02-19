@@ -1,4 +1,4 @@
-package tfmigrate
+package tfrefactor
 
 import (
 	"encoding/json"

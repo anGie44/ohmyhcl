@@ -16,7 +16,7 @@ if [ -z "$TFSTATE_JSON" ]; then
 fi
 
 # 2. Run Migration
-tfmigrate resource aws_s3_bucket ./terraform -provider-version "~> 4.0"
+tfrefactor resource aws_s3_bucket ./terraform -provider-version "~> 4.0"
 
 #. 3. For each new resource, find the corresponding bucket ID in tfstate to generate import statements
 while IFS=, read -r field1 field2
