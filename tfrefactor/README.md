@@ -50,6 +50,12 @@ resource "aws_s3_bucket_website_configuration" "this_website_configuration" {
 }
 ```
 
+### Download
+
+Download the latest compiled binaries and put it anywhere in your executable path.
+
+https://github.com/anGie44/ohmyhcl/releases
+
 ### Source
 
 If you have Go 1.17+ development environment:
