@@ -1,4 +1,7 @@
 # Build customization
+archives:
+  - format: zip
+    name_template: 'tfrefactor_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
 builds:
   - binary: tfrefactor
     dir: tfrefactor
