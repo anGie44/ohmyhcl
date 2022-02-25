@@ -20,6 +20,8 @@ builds:
         goos: darwin
     env:
       - CGO_ENABLED=0
+checksum:
+  name_template: 'tfrefactor_{{ .Version }}_checksums.txt'
 release:
   prerelease: auto
 changelog:
