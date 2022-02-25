@@ -1,0 +1,17 @@
+# Build customization
+builds:
+  - binary: tfrefactor
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+  - dir: tfrefactor
+release:
+  prerelease: auto
+changelog:
+  skip: true
