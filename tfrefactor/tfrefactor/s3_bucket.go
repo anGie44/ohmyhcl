@@ -453,7 +453,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 							switch k {
 							case "days":
 								// "days" is represented as "noncurrent_days" in the new resource
-								nvt.Body().SetAttributeRaw("noncurent_days", v.Expr().BuildTokens(nil))
+								nvt.Body().SetAttributeRaw("noncurrent_days", v.Expr().BuildTokens(nil))
 							case "storage_class":
 								nvt.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
 							}

@@ -68,8 +68,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "example_lifecycle_configuratio
       prefix = "path3/"
     }
     noncurrent_version_transition {
-      storage_class  = "GLACIER"
-      noncurent_days = 0
+      storage_class   = "GLACIER"
+      noncurrent_days = 0
     }
   }
 }
