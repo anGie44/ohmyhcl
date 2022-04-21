@@ -104,6 +104,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 		// Special Attribute Handling i.e. for_each and count
 		countAttr := block.Body().GetAttribute("count")
 		forEachAttr := block.Body().GetAttribute("for_each")
+		providerAttr := block.Body().GetAttribute("provider")
 
 		/////////////////////////////////////////// Attribute Handling /////////////////////////////////////////////////
 		// 1. acceleration_status
@@ -131,6 +132,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 					},
 				})
 
+				if providerAttr != nil {
+					newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+				}
+
 				newBlock.Body().SetAttributeRaw("status", v.Expr().BuildTokens(nil))
 
 				log.Printf("	  ✓ Created %s.%s", ResourceMap[k], newlabels[1])
@@ -148,6 +153,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 					},
 				})
 
+				if providerAttr != nil {
+					aclResourceBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+				}
+
 				aclResourceBlock.Body().SetAttributeRaw(k, v.Expr().BuildTokens(nil))
 
 				log.Printf("	  ✓ Created %s.%s", ResourceMap[k], newlabels[1])
@@ -164,6 +173,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 						Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
 					},
 				})
+
+				if providerAttr != nil {
+					newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+				}
 
 				newBlock.Body().SetAttributeRaw("payer", v.Expr().BuildTokens(nil))
 
@@ -292,6 +305,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				},
 			})
 
+			if providerAttr != nil {
+				newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+			}
+
 			for _, b := range corsRules {
 				if b.Type() == "dynamic" {
 					// Update content to use "each.value"
@@ -327,6 +344,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 						Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
 					},
 				})
+
+				if providerAttr != nil {
+					newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+				}
 
 				acpBlock := newBlock.Body().AppendNewBlock("access_control_policy", nil)
 
@@ -389,6 +410,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
 				},
 			})
+
+			if providerAttr != nil {
+				newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+			}
 
 			for _, lifecycleRuleBlock := range lifecycleRules {
 				ruleBlock := newBlock.Body().AppendNewBlock("rule", nil)
@@ -493,6 +518,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				},
 			})
 
+			if providerAttr != nil {
+				newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+			}
+
 			for k, v := range logging.Body().Attributes() {
 				// Expected: target_bucket, target_prefix
 				if hasForEach {
@@ -522,6 +551,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
 				},
 			})
+
+			if providerAttr != nil {
+				newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+			}
 
 			versioningConfigBlock := newBlock.Body().AppendNewBlock("versioning_configuration", nil)
 
@@ -557,6 +590,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				},
 			})
 
+			if providerAttr != nil {
+				newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+			}
+
 			for k, v := range objectLockConfig.Body().Attributes() {
 				// Expected: object_lock_enabled
 				if k != "object_lock_enabled" {
@@ -588,6 +625,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 					Name: fmt.Sprintf("%s.%s.id", labels[0], labels[1]),
 				},
 			})
+
+			if providerAttr != nil {
+				newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+			}
 
 			for k, v := range replicationConfig.Body().Attributes() {
 				// Expected: role
@@ -740,6 +781,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				},
 			})
 
+			if providerAttr != nil {
+				newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+			}
+
 			for _, b := range serverSideEncryptionConfig.Body().Blocks() {
 				// we only expect 1 rule as defined in the aws_s3_bucket schema
 				if b.Type() != "rule" {
@@ -778,6 +823,10 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 					Name: bucketAttribute,
 				},
 			})
+
+			if providerAttr != nil {
+				newBlock.Body().SetAttributeRaw("provider", providerAttr.Expr().BuildTokens(nil))
+			}
 
 			for k, v := range website.Body().Attributes() {
 				switch k {
