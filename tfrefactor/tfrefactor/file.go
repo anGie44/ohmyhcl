@@ -46,7 +46,7 @@ func MigrateFile(fs afero.Fs, filename string, o Option) error {
 	// does not seem to preserve an original SpaceBefore value of attribute.
 	// So, we need to format output here.
 	result := hclwrite.Format(migrated)
-	if err = afero.WriteFile(fs, outputFilename, result, os.ModePerm); err != nil {
+	if err = afero.WriteFile(fs, outputFilename, result, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %s", err)
 	}
 
