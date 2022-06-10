@@ -3,9 +3,10 @@ package tfrefactor
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"log"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -526,18 +527,27 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 			versioningConfigBlock := newBlock.Body().AppendNewBlock("versioning_configuration", nil)
 
 			for k, v := range versioning.Body().Attributes() {
-				// Expected: enabled
-				if k != "enabled" {
-					continue
-				}
-				value := strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes()))
-				if value == "true" {
-					expr := hclwrite.NewExpressionLiteral(cty.StringVal("Enabled"))
-					versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
-				} else if value == "false" {
-					// This might not be accurate as "false" can indicate never enable versioning
-					expr := hclwrite.NewExpressionLiteral(cty.StringVal("Suspended"))
-					versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
+				// Expected: enabled, mfa_delete
+				switch k {
+				case "enabled":
+					value := strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes()))
+					if value == "true" {
+						expr := hclwrite.NewExpressionLiteral(cty.StringVal("Enabled"))
+						versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
+					} else if value == "false" {
+						// This might not be accurate as "false" can indicate never enable versioning
+						expr := hclwrite.NewExpressionLiteral(cty.StringVal("Suspended"))
+						versioningConfigBlock.Body().SetAttributeRaw("status", expr.BuildTokens(nil))
+					}
+				case "mfa_delete":
+					value := strings.TrimSpace(string(v.Expr().BuildTokens(nil).Bytes()))
+					if value == "true" {
+						expr := hclwrite.NewExpressionLiteral(cty.StringVal("Enabled"))
+						versioningConfigBlock.Body().SetAttributeRaw("mfa_delete", expr.BuildTokens(nil))
+					} else if value == "false" {
+						expr := hclwrite.NewExpressionLiteral(cty.StringVal("Disabled"))
+						versioningConfigBlock.Body().SetAttributeRaw("mfa_delete", expr.BuildTokens(nil))
+					}
 				}
 			}
 
