@@ -122,7 +122,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				block.Body().RemoveAttribute(k)
 				f.Body().AppendNewline()
 
-				newlabels := []string{ResourceMap[k], fmt.Sprintf("%s_%s", labels[1], AccelerateConfiguration)}
+				newlabels := []string{ResourceMap[k], fmt.Sprintf("%s", labels[1])}
 				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -139,7 +139,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				block.Body().RemoveAttribute(k)
 				f.Body().AppendNewline()
 
-				newlabels := []string{ResourceMap[k], fmt.Sprintf("%s_%s", labels[1], k)}
+				newlabels := []string{ResourceMap[k], fmt.Sprintf("%s", labels[1])}
 				aclResourceBlock = f.Body().AppendNewBlock(block.Type(), newlabels)
 
 				aclResourceBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -156,7 +156,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				block.Body().RemoveAttribute(k)
 				f.Body().AppendNewline()
 
-				newlabels := []string{ResourceMap[k], fmt.Sprintf("%s_%s", labels[1], RequestPaymentConfiguration)}
+				newlabels := []string{ResourceMap[k], fmt.Sprintf("%s", labels[1])}
 				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -257,7 +257,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 			// Create new Cors resource
 			f.Body().AppendNewline()
 
-			newlabels := []string{ResourceTypeAwsS3BucketCorsConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], CorsConfiguration)}
+			newlabels := []string{ResourceTypeAwsS3BucketCorsConfiguration.String(), fmt.Sprintf("%s", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			for _, crBlock := range corsRules {
@@ -319,7 +319,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 				// Create new aws_s3_bucket_acl resource
 				f.Body().AppendNewline()
 
-				newlabels := []string{ResourceTypeAwsS3BucketAcl.String(), fmt.Sprintf("%s_%s", labels[1], Acl)}
+				newlabels := []string{ResourceTypeAwsS3BucketAcl.String(), fmt.Sprintf("%s", labels[1])}
 				newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 				newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -381,7 +381,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 		if len(lifecycleRules) > 0 {
 			f.Body().AppendNewline()
 
-			newlabels := []string{ResourceTypeAwsS3BucketLifecycleConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], LifecycleConfiguration)}
+			newlabels := []string{ResourceTypeAwsS3BucketLifecycleConfiguration.String(), fmt.Sprintf("%s", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -469,7 +469,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 		if logging != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{ResourceTypeAwsS3BucketLogging.String(), fmt.Sprintf("%s_%s", labels[1], Logging)}
+			newlabels := []string{ResourceTypeAwsS3BucketLogging.String(), fmt.Sprintf("%s", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			// Account for dynamic blocks of this argument
@@ -514,7 +514,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 		if versioning != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{ResourceTypeAwsS3BucketVersioning.String(), fmt.Sprintf("%s_%s", labels[1], Versioning)}
+			newlabels := []string{ResourceTypeAwsS3BucketVersioning.String(), fmt.Sprintf("%s", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -548,7 +548,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 		if objectLockConfig != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{ResourceTypeAwsS3BucketObjectLockConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], ObjectLockConfiguration)}
+			newlabels := []string{ResourceTypeAwsS3BucketObjectLockConfiguration.String(), fmt.Sprintf("%s", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -580,7 +580,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 		if replicationConfig != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{ResourceTypeAwsS3BucketReplicationConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], ReplicationConfiguration)}
+			newlabels := []string{ResourceTypeAwsS3BucketReplicationConfiguration.String(), fmt.Sprintf("%s", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -731,7 +731,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 		if serverSideEncryptionConfig != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{ResourceTypeAwsS3BucketServerSideEncryptionConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], ServerSideEncryptionConfiguration)}
+			newlabels := []string{ResourceTypeAwsS3BucketServerSideEncryptionConfiguration.String(), fmt.Sprintf("%s", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			newBlock.Body().SetAttributeTraversal("bucket", hcl.Traversal{
@@ -755,7 +755,7 @@ func (m *ProviderAwsS3BucketMigrator) migrateS3BucketResources(f *hclwrite.File)
 		if website != nil {
 			f.Body().AppendNewline()
 
-			newlabels := []string{ResourceTypeAwsS3BucketWebsiteConfiguration.String(), fmt.Sprintf("%s_%s", labels[1], WebsiteConfiguration)}
+			newlabels := []string{ResourceTypeAwsS3BucketWebsiteConfiguration.String(), fmt.Sprintf("%s", labels[1])}
 			newBlock := f.Body().AppendNewBlock(block.Type(), newlabels)
 
 			// Account for dynamic blocks of this argument
